@@ -1,0 +1,53 @@
+---
+title: "Getting Started with MDX for Blogging"
+date: "2025-08-26"
+author: "Sir"
+tags: ["mdx", "blog", "react", "nextjs"]
+summary: "A quick introduction to writing blog posts in MDX with markdown and React components."
+---
+
+import { Alert } from "@/components/Alert"
+import { CodeBlock } from "@/components/CodeBlock"
+
+# 🚀 Getting Started with MDX
+
+MDX lets you write **Markdown + JSX** in the same file.  
+That means you can have a blog post like this ⬇️
+
+---
+
+## Why MDX?
+
+- Write posts with regular markdown
+- Embed React components directly
+- Keep content and UI flexible
+
+For example:
+
+<Alert type="info">
+  This is a React component embedded inside your blog post.  
+  You can pass props just like normal JSX!
+</Alert>
+
+---
+
+## Example Code
+
+Here’s a code snippet inside an MDX file:
+
+<CodeBlock language="javascript">
+{`function greet(name) {
+  return \`Hello, \${name}!\`
+}
+
+console.log(greet("Sir"))`}
+</CodeBlock>
+
+---
+
+## Wrapping Up
+
+That’s the power of **MDX**.  
+You can mix _content_ and _components_ without breaking the flow of your writing.  
+
+Happy blogging! 🎉

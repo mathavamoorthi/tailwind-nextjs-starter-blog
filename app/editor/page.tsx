@@ -355,25 +355,23 @@ export default function MDXEditorPage() {
           </label>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <label className="flex flex-col">
-            <span className="mb-1 text-sm font-medium">MDX Body</span>
-            <textarea
-              className="min-h-[480px] rounded border border-gray-300 p-2 font-mono dark:bg-gray-900"
-              ref={bodyRef}
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              onPaste={handlePaste}
-              placeholder={"\n## Hello MDX\n\nWrite your content here..."}
-            />
-          </label>
-          <div className="flex flex-col">
-            <span className="mb-1 text-sm font-medium">Live Preview</span>
-            <div
-              className="prose max-w-none rounded border border-gray-300 p-3 dark:prose-invert dark:bg-gray-900"
-              dangerouslySetInnerHTML={{ __html: previewHtml }}
-            />
-          </div>
+        <label className="flex flex-col">
+          <span className="mb-1 text-sm font-medium">MDX Body</span>
+          <textarea
+            className="min-h-[480px] rounded border border-gray-300 p-2 font-mono dark:bg-gray-900"
+            ref={bodyRef}
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            onPaste={handlePaste}
+            placeholder={"\n## Hello MDX\n\nWrite your content here..."}
+          />
+        </label>
+        <div className="flex flex-col">
+          <span className="mb-1 text-sm font-medium">Live Preview</span>
+          <div
+            className="prose max-w-none rounded border border-gray-300 p-3 dark:prose-invert dark:bg-gray-900"
+            dangerouslySetInnerHTML={{ __html: previewHtml }}
+          />
         </div>
 
         <div className="flex items-center gap-3">

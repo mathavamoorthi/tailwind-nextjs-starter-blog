@@ -62,6 +62,12 @@ function serializeFrontmatter(obj: Record<string, unknown>) {
   return lines.join('\n')
 }
 
+function getRequestAuthor(request: Request): string | null {
+  const header = request.headers.get('x-editor-author')
+  if (!header) return null
+  return header.trim()
+}
+
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as RequestBody
@@ -85,6 +91,11 @@ export async function POST(request: Request) {
     const filePath = path.join(dir, filename)
 
     const fm = buildFrontmatter(frontmatter)
+    const actorAuthor = getRequestAuthor(request)
+    if (actorAuthor) {
+      // Force authors to be the authenticated author only
+      fm.authors = [actorAuthor]
+    }
     const fmText = serializeFrontmatter(fm)
     const content = `${fmText}\n\n${mdxBody || ''}\n`
     await writeFile(filePath, content, 'utf-8')

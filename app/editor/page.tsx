@@ -1,6 +1,11 @@
 "use client"
 
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
+import { unified } from 'unified'
+import remarkParse from 'remark-parse'
+import remarkGfm from 'remark-gfm'
+import remarkRehype from 'remark-rehype'
+import rehypeStringify from 'rehype-stringify'
 
 type Frontmatter = {
   title: string
@@ -43,6 +48,10 @@ export default function MDXEditorPage() {
   const [saving, setSaving] = useState<boolean>(false)
   const [message, setMessage] = useState<string>('')
   const bodyRef = useRef<HTMLTextAreaElement | null>(null)
+  const [previewHtml, setPreviewHtml] = useState<string>('')
+  const [dirty, setDirty] = useState<boolean>(false)
+  const [loadingExisting, setLoadingExisting] = useState<boolean>(false)
+  const [existingPosts, setExistingPosts] = useState<{ title: string; slug: string }[]>([])
 
   const slug = useMemo(() => slugify(frontmatter.title || 'untitled'), [frontmatter.title])
 
@@ -69,12 +78,94 @@ export default function MDXEditorPage() {
       }
       const data = await res.json()
       setMessage(`Saved: ${data.path}`)
+      setDirty(false)
     } catch (err) {
       const error = err as Error
       setMessage(error.message)
     } finally {
       setSaving(false)
     }
+  }
+
+  useEffect(() => {
+    setDirty(true)
+  }, [frontmatter, body])
+
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (dirty) {
+        e.preventDefault()
+        e.returnValue = ''
+      }
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [dirty])
+
+  useEffect(() => {
+    let canceled = false
+    async function render() {
+      try {
+        const md = body
+        const file = await unified()
+          .use(remarkParse)
+          .use(remarkGfm)
+          .use(remarkRehype)
+          .use(rehypeStringify)
+          .process(md)
+        if (!canceled) setPreviewHtml(String(file))
+      } catch {
+        if (!canceled) setPreviewHtml('')
+      }
+    }
+    render()
+    return () => {
+      canceled = true
+    }
+  }, [body])
+
+  // Load existing posts for quick editing
+  useEffect(() => {
+    let cancelled = false
+    async function fetchPosts() {
+      try {
+        setLoadingExisting(true)
+        const res = await fetch('/api/editor/list')
+        if (!res.ok) return
+        const data = (await res.json()) as { posts: { title: string; slug: string }[] }
+        if (!cancelled) setExistingPosts(data.posts || [])
+      } finally {
+        setLoadingExisting(false)
+      }
+    }
+    fetchPosts()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  async function loadPost(editSlug: string) {
+    const res = await fetch(`/api/editor/get?slug=${encodeURIComponent(editSlug)}`)
+    if (!res.ok) return
+    const data = (await res.json()) as {
+      frontmatter: Partial<Frontmatter> & { title?: string; date?: string }
+      body: string
+    }
+    setFrontmatter((prev) => ({
+      ...prev,
+      ...data.frontmatter,
+      // Coerce arrays back into comma-separated strings where needed
+      tags: Array.isArray((data.frontmatter as any).tags)
+        ? (data.frontmatter as any).tags.join(', ')
+        : (data.frontmatter as any).tags || '',
+      authors: Array.isArray((data.frontmatter as any).authors)
+        ? (data.frontmatter as any).authors.join(', ')
+        : (data.frontmatter as any).authors || '',
+      images: Array.isArray((data.frontmatter as any).images)
+        ? (data.frontmatter as any).images.join(', ')
+        : (data.frontmatter as any).images || '',
+    }))
+    setBody(data.body || '')
   }
 
   async function uploadImage(file: File): Promise<string> {
@@ -138,6 +229,26 @@ export default function MDXEditorPage() {
     <div className="mx-auto max-w-4xl px-4 py-8">
       <h1 className="mb-6 text-3xl font-bold">New MDX Post</h1>
       <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="rounded border border-gray-300 p-3 dark:bg-gray-900">
+          <div className="mb-2 text-sm font-medium">Edit existing post</div>
+          <div className="flex gap-2">
+            <select
+              className="w-full rounded border border-gray-300 p-2 dark:bg-gray-950"
+              disabled={loadingExisting || existingPosts.length === 0}
+              onChange={(e) => e.target.value && loadPost(e.target.value)}
+              defaultValue=""
+            >
+              <option value="" disabled>
+                {loadingExisting ? 'Loading…' : existingPosts.length ? 'Select a post' : 'No posts found'}
+              </option>
+              {existingPosts.map((p) => (
+                <option key={p.slug} value={p.slug}>
+                  {p.title}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <label className="flex flex-col">
             <span className="mb-1 text-sm font-medium">Title *</span>
@@ -244,17 +355,26 @@ export default function MDXEditorPage() {
           </label>
         </div>
 
-        <label className="flex flex-col">
-          <span className="mb-1 text-sm font-medium">MDX Body</span>
-          <textarea
-            className="min-h-[280px] rounded border border-gray-300 p-2 font-mono dark:bg-gray-900"
-            ref={bodyRef}
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            onPaste={handlePaste}
-            placeholder={"\n## Hello MDX\n\nWrite your content here..."}
-          />
-        </label>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <label className="flex flex-col">
+            <span className="mb-1 text-sm font-medium">MDX Body</span>
+            <textarea
+              className="min-h-[480px] rounded border border-gray-300 p-2 font-mono dark:bg-gray-900"
+              ref={bodyRef}
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              onPaste={handlePaste}
+              placeholder={"\n## Hello MDX\n\nWrite your content here..."}
+            />
+          </label>
+          <div className="flex flex-col">
+            <span className="mb-1 text-sm font-medium">Live Preview</span>
+            <div
+              className="prose max-w-none rounded border border-gray-300 p-3 dark:prose-invert dark:bg-gray-900"
+              dangerouslySetInnerHTML={{ __html: previewHtml }}
+            />
+          </div>
+        </div>
 
         <div className="flex items-center gap-3">
           <button

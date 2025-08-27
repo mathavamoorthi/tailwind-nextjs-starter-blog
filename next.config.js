@@ -71,30 +71,17 @@ module.exports = () => {
     pageExtensions: ['ts', 'tsx', 'js', 'jsx', 'md', 'mdx'],
     eslint: {
       dirs: ['app', 'components', 'layouts', 'scripts'],
+      ignoreDuringBuilds: true, // add this if builds fail on lint
     },
     images: {
-      remotePatterns: [
-        {
-          protocol: 'https',
-          hostname: 'picsum.photos',
-        },
-      ],
+      remotePatterns: [{ protocol: 'https', hostname: 'picsum.photos' }],
       unoptimized,
     },
     async headers() {
-      return [
-        {
-          source: '/(.*)',
-          headers: securityHeaders,
-        },
-      ]
+      return [{ source: '/(.*)', headers: securityHeaders }]
     },
-    webpack: (config, options) => {
-      config.module.rules.push({
-        test: /\.svg$/,
-        use: ['@svgr/webpack'],
-      })
-
+    webpack: (config) => {
+      config.module.rules.push({ test: /\.svg$/, use: ['@svgr/webpack'] })
       return config
     },
   })

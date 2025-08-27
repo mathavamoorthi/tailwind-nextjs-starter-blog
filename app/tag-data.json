@@ -1,6 +1,8 @@
 {
+  "nextjs": 1,
+  "tailwind": 4,
+  "mdx": 1,
   "next-js": 6,
-  "tailwind": 3,
   "guide": 5,
   "feature": 2,
   "multi-author": 1,

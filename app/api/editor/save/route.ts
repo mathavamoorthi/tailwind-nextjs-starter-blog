@@ -174,68 +174,92 @@ export async function POST(request: Request) {
           process.env.GITHUB_REPO
         )
         
-        // Directly commit images instead of making API call
-        const baseDir = process.env.VERCEL ? '/tmp' : process.cwd()
-        const tempImageDir = path.join(baseDir, 'public', 'static', 'images', slug)
+        // Debug: Scan for images in various temp locations
+        console.log(`🔍 Scanning for images for slug: ${slug}`)
         
         let committedImages: string[] = []
         let failedImages: string[] = []
         
-        try {
-          // Check if temp directory exists
-          await access(tempImageDir)
-          
-          // Read all files in the temp directory
-          const files = await readdir(tempImageDir)
-          
-          // Filter for image files
-          const imageFiles = files.filter(file => 
-            /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(file)
-          )
-
-          if (imageFiles.length > 0) {
-            // Commit each image to GitHub
-            for (const filename of imageFiles) {
-              try {
-                const imagePath = path.join(tempImageDir, filename)
-                const imageBuffer = await readFile(imagePath)
-                const base64Content = imageBuffer.toString('base64')
-                
-                const commitMessage = `Add image for blog post: ${slug} - ${filename}`
-                
-                await github.createOrUpdateFile(
-                  `public/static/images/${slug}/${filename}`,
-                  base64Content,
-                  commitMessage
-                )
-                
-                committedImages.push(filename)
-                console.log(`Successfully committed image to GitHub: ${filename}`)
-                
-                // Clean up temp file after successful commit
-                try {
-                  await unlink(imagePath)
-                  console.log(`Cleaned up temp file: ${imagePath}`)
-                } catch (cleanupError) {
-                  console.warn(`Failed to clean up temp file: ${imagePath}`, cleanupError)
-                }
-                
-              } catch (error) {
-                console.error(`Failed to commit image ${filename}:`, error)
-                failedImages.push(filename)
-              }
-            }
+        // Try multiple possible temp paths
+        const possiblePaths = [
+          `/tmp/public/static/images/${slug}`,
+          `/tmp/static/images/${slug}`,
+          `/tmp/images/${slug}`,
+          `/tmp/${slug}`,
+          `/tmp/public/images/${slug}`,
+          `/tmp/editor/images/${slug}`
+        ]
+        
+        let imagesFound = false
+        
+        for (const tempPath of possiblePaths) {
+          try {
+            console.log(`🔍 Checking path: ${tempPath}`)
+            await access(tempPath)
             
-            imageCommitResult = {
-              message: `Committed ${committedImages.length} images to GitHub`,
-              committed: committedImages,
-              failed: failedImages,
-              total: imageFiles.length
+            const files = await readdir(tempPath)
+            console.log(`📁 Found ${files.length} files in ${tempPath}:`, files)
+            
+            // Filter for image files
+            const imageFiles = files.filter(file => 
+              /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(file)
+            )
+            
+            if (imageFiles.length > 0) {
+              console.log(`🖼️ Found ${imageFiles.length} images in ${tempPath}:`, imageFiles)
+              imagesFound = true
+              
+              // Commit each image to GitHub
+              for (const filename of imageFiles) {
+                try {
+                  const imagePath = path.join(tempPath, filename)
+                  console.log(`📤 Committing image: ${imagePath}`)
+                  
+                  const imageBuffer = await readFile(imagePath)
+                  const base64Content = imageBuffer.toString('base64')
+                  
+                  const commitMessage = `Add image for blog post: ${slug} - ${filename}`
+                  
+                  await github.createOrUpdateFile(
+                    `public/static/images/${slug}/${filename}`,
+                    base64Content,
+                    commitMessage
+                  )
+                  
+                  committedImages.push(filename)
+                  console.log(`✅ Successfully committed image to GitHub: ${filename}`)
+                  
+                  // Clean up temp file after successful commit
+                  try {
+                    await unlink(imagePath)
+                    console.log(`🧹 Cleaned up temp file: ${imagePath}`)
+                  } catch (cleanupError) {
+                    console.warn(`⚠️ Failed to clean up temp file: ${imagePath}`, cleanupError)
+                  }
+                  
+                } catch (error) {
+                  console.error(`❌ Failed to commit image ${filename}:`, error)
+                  failedImages.push(filename)
+                }
+              }
+              
+              imageCommitResult = {
+                message: `Committed ${committedImages.length} images to GitHub`,
+                committed: committedImages,
+                failed: failedImages,
+                total: imageFiles.length
+              }
+              
+              break // Found images, no need to check other paths
             }
+          } catch (pathError) {
+            console.log(`❌ Path not accessible: ${tempPath}`)
+            continue
           }
-        } catch (error) {
-          console.error('Error accessing temp image directory:', error)
-          // No images to commit
+        }
+        
+        if (!imagesFound) {
+          console.log(`🔍 No images found in any temp paths for slug: ${slug}`)
         }
       } catch (error) {
         console.error('Image commit error:', error)

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import path from 'path'
-import { mkdir, writeFile, access } from 'fs/promises'
+import { mkdir, writeFile, access, readdir, unlink } from 'fs/promises'
+import { GitHubAPI } from '../../../../lib/github'
 
 function isValidSlug(slug: string) {
   return /^[a-z0-9-]+$/.test(slug)
@@ -28,18 +29,41 @@ export async function POST(request: Request) {
     const timestamp = Date.now()
     const filename = `${timestamp}-${safeName}`
 
-    const dir = path.join(process.cwd(), 'public', 'static', 'images', slug)
+    // Stage 1: Store image in /tmp for immediate preview
     try {
-      await access(dir)
-    } catch {
-      await mkdir(dir, { recursive: true })
+      const baseDir = process.env.VERCEL ? '/tmp' : process.cwd()
+      const dir = path.join(baseDir, 'public', 'static', 'images', slug)
+      
+      try {
+        await access(dir)
+      } catch {
+        await mkdir(dir, { recursive: true })
+      }
+
+      const filePath = path.join(dir, filename)
+      await writeFile(filePath, buffer)
+      
+      console.log('Successfully stored image in temp for preview:', filePath)
+      
+      // Return temporary URL for immediate preview
+      const publicUrl = process.env.VERCEL 
+        ? `/api/editor/image/${slug}/${filename}` // Temporary API endpoint
+        : `/static/images/${slug}/${filename}` // Local development
+      
+      return NextResponse.json({ 
+        ok: true, 
+        url: publicUrl, 
+        filename,
+        tempPath: filePath,
+        message: '✅ Image uploaded for preview (will be committed to GitHub when you save the post)'
+      })
+    } catch (localError) {
+      console.error('Local upload error:', localError)
+      return NextResponse.json({ 
+        error: 'Failed to upload image for preview.',
+        details: process.env.VERCEL ? 'Running on Vercel with read-only filesystem' : 'Local filesystem write failed'
+      }, { status: 500 })
     }
-
-    const filePath = path.join(dir, filename)
-    await writeFile(filePath, buffer)
-
-    const publicUrl = `/static/images/${slug}/${filename}`
-    return NextResponse.json({ ok: true, url: publicUrl, filename })
   } catch (e) {
     console.error(e)
     return NextResponse.json({ error: 'upload failed' }, { status: 500 })

@@ -68,6 +68,12 @@ EDITOR_USERS=username1:password1:author1,username2:password2:author2
 - **Version Control**: Every post change is tracked in Git history
 - **Collaboration**: Multiple authors can edit and see changes in real-time
 
+### 6. Vercel Deployment Notes
+- **Filesystem Limitations**: Vercel's serverless environment has a read-only filesystem
+- **GitHub-First Approach**: The editor prioritizes GitHub commits over local file writes
+- **Two-Stage Image Process**: Images are stored in `/tmp` for preview, then committed to GitHub when saving
+- **Automatic Fallback**: If GitHub fails, the system attempts local writes for development
+
 #### GitHub Setup Steps:
 1. **Create Personal Access Token**:
    - Go to GitHub → Settings → Developer settings → Personal access tokens
@@ -83,7 +89,27 @@ EDITOR_USERS=username1:password1:author1,username2:password2:author2
 
 3. **Deploy**: Your editor will now automatically push to GitHub!
 
-Facing issues? Check the [FAQ page](https://github.com/timlrx/tailwind-nextjs-starter-blog/wiki) and do a search on past issues. Feel free to open a new issue if none has been posted previously.
+## 🔧 Troubleshooting
+
+### Common Issues
+
+**"EROFS: read-only file system" Error**
+- This is expected on Vercel - the editor automatically handles this
+- Ensure your `GITHUB_TOKEN`, `GITHUB_OWNER`, and `GITHUB_REPO` are set correctly
+- The editor will commit to GitHub instead of writing locally
+
+**Images Not Persisting**
+- Images are stored in `/tmp` for immediate preview during editing
+- When you save the blog post, all images are automatically committed to GitHub
+- If GitHub integration fails, images remain in temporary storage (won't persist)
+- Ensure your `GITHUB_TOKEN` has `repo` scope permissions for image uploads
+
+**GitHub Integration Not Working**
+- Verify your GitHub token has `repo` scope permissions
+- Check that `GITHUB_OWNER` and `GITHUB_REPO` match your repository exactly
+- Ensure the token hasn't expired
+
+Facing other issues? Check the [FAQ page](https://github.com/timlrx/tailwind-nextjs-starter-blog/wiki) and do a search on past issues. Feel free to open a new issue if none has been posted previously.
 
 Feature request? Check the past discussions to see if it has been brought up previously. Otherwise, feel free to start a new discussion thread. All ideas are welcomed!
 

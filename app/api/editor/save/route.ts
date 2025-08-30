@@ -82,16 +82,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'invalid slug' }, { status: 400 })
     }
 
-    const dir = path.join(process.cwd(), 'data', 'blog')
-    try {
-      await access(dir)
-    } catch {
-      await mkdir(dir, { recursive: true })
-    }
-
     const filename = `${slug}.mdx`
-    const filePath = path.join(dir, filename)
-
     const fm = buildFrontmatter(frontmatter)
     const actorAuthor = getRequestAuthor(request)
     if (actorAuthor) {
@@ -100,10 +91,13 @@ export async function POST(request: Request) {
     }
     const fmText = serializeFrontmatter(fm)
     const content = `${fmText}\n\n${mdxBody || ''}\n`
-    await writeFile(filePath, content, 'utf-8')
 
-    // Push to GitHub if configured
+    // In production (Vercel), we can't write to the filesystem
+    // So we only write to GitHub and rely on the build process
     let githubResult = null
+    let localWriteSuccess = false
+
+    // Try to write to GitHub first (this is the primary method)
     if (process.env.GITHUB_TOKEN && process.env.GITHUB_OWNER && process.env.GITHUB_REPO) {
       try {
         const github = new GitHubAPI(
@@ -118,9 +112,43 @@ export async function POST(request: Request) {
           content,
           commitMessage
         )
+        
+        if (githubResult) {
+          console.log('Successfully committed to GitHub:', filename)
+        }
       } catch (error) {
         console.error('GitHub push error:', error)
-        // Don't fail the save operation if GitHub push fails
+        // If GitHub fails, we'll try local write as fallback
+      }
+    }
+
+    // Fallback: Try to write locally (for development or if GitHub fails)
+    if (!githubResult) {
+      try {
+        // Use /tmp for Vercel or current working directory for local development
+        const baseDir = process.env.VERCEL ? '/tmp' : process.cwd()
+        const dir = path.join(baseDir, 'data', 'blog')
+        
+        try {
+          await access(dir)
+        } catch {
+          await mkdir(dir, { recursive: true })
+        }
+
+        const filePath = path.join(dir, filename)
+        await writeFile(filePath, content, 'utf-8')
+        localWriteSuccess = true
+        console.log('Successfully wrote locally:', filePath)
+      } catch (localError) {
+        console.error('Local write error:', localError)
+        
+        // If both GitHub and local write fail, return error
+        if (!githubResult) {
+          return NextResponse.json({ 
+            error: 'Failed to save blog post. GitHub push failed and local write not permitted.',
+            details: process.env.VERCEL ? 'Running on Vercel with read-only filesystem' : 'Local filesystem write failed'
+          }, { status: 500 })
+        }
       }
     }
 
@@ -135,10 +163,39 @@ export async function POST(request: Request) {
       console.error('Revalidation error:', error)
     }
 
+    // Commit any temporary images to GitHub
+    let imageCommitResult = null
+    if (process.env.GITHUB_TOKEN && process.env.GITHUB_OWNER && process.env.GITHUB_REPO) {
+      try {
+        const imageCommitRes = await fetch(`${process.env.VERCEL_URL || 'http://localhost:3000'}/api/editor/commit-images`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ slug })
+        })
+        
+        if (imageCommitRes.ok) {
+          imageCommitResult = await imageCommitRes.json()
+          console.log('Image commit result:', imageCommitResult)
+        }
+      } catch (error) {
+        console.error('Image commit error:', error)
+        // Don't fail the save operation if image commit fails
+      }
+    }
+
     return NextResponse.json({ 
       ok: true, 
       path: `data/blog/${filename}`,
-      github: githubResult ? { committed: true, sha: (githubResult as any).commit?.sha } : null
+      github: githubResult ? { committed: true, sha: (githubResult as any).commit?.sha } : null,
+      local: localWriteSuccess,
+      images: imageCommitResult,
+      message: githubResult 
+        ? (imageCommitResult && typeof imageCommitResult === 'object' && 'committed' in imageCommitResult && Array.isArray((imageCommitResult as any).committed) && (imageCommitResult as any).committed.length > 0
+            ? `Blog post and ${(imageCommitResult as any).committed.length} images committed to GitHub successfully`
+            : 'Blog post committed to GitHub successfully')
+        : localWriteSuccess 
+          ? 'Blog post saved locally (GitHub not configured)' 
+          : 'Blog post saved'
     })
   } catch (e) {
     console.error(e)

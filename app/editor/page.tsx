@@ -83,10 +83,17 @@ export default function MDXEditorPage() {
       }
       const data = await res.json()
       
+      // Show appropriate message based on save result
       if (data.github?.committed) {
-        setMessage(`Saved: ${data.path} - Pushed to GitHub! Revalidating pages...`)
+        if (data.images && data.images.committed && data.images.committed.length > 0) {
+          setMessage(`✅ Saved: ${data.path} - Blog post and ${data.images.committed.length} images committed to GitHub! Revalidating pages...`)
+        } else {
+          setMessage(`✅ Saved: ${data.path} - Pushed to GitHub! Revalidating pages...`)
+        }
+      } else if (data.local) {
+        setMessage(`✅ Saved: ${data.path} - Saved locally (GitHub not configured)`)
       } else {
-        setMessage(`Saved: ${data.path} - Revalidating pages...`)
+        setMessage(`✅ Saved: ${data.path} - Revalidating pages...`)
       }
       
       setDirty(false)
@@ -94,7 +101,13 @@ export default function MDXEditorPage() {
       // Wait a moment for revalidation to complete
       setTimeout(() => {
         if (data.github?.committed) {
-          setMessage(`✅ Published: ${data.path} - Pushed to GitHub & pages updated!`)
+          if (data.images && data.images.committed && data.images.committed.length > 0) {
+            setMessage(`✅ Published: ${data.path} - Blog post and ${data.images.committed.length} images committed to GitHub & pages updated!`)
+          } else {
+            setMessage(`✅ Published: ${data.path} - Pushed to GitHub & pages updated!`)
+          }
+        } else if (data.local) {
+          setMessage(`✅ Saved: ${data.path} - Saved locally`)
         } else {
           setMessage(`✅ Saved: ${data.path} - Pages updated!`)
         }
@@ -216,7 +229,16 @@ export default function MDXEditorPage() {
       const data = await res.json().catch(() => ({}))
       throw new Error(data?.error || 'Upload failed')
     }
-    const data = (await res.json()) as { url: string }
+    const data = await res.json() as { url: string; message?: string; local?: boolean; github?: { committed: boolean; sha: string }; filename?: string }
+    
+    // Show upload status message
+    if (data.message) {
+      setMessage(data.message)
+    }
+    
+    // Show preview status
+    setMessage('✅ Image uploaded for preview (will be committed to GitHub when you save the post)')
+    
     return data.url
   }
 

@@ -12,6 +12,9 @@ export const generateStaticParams = async () => {
   return paths
 }
 
+// Enable ISR - revalidate every hour
+export const revalidate = 3600
+
 export default async function Page(props: { params: Promise<{ page: string }> }) {
   const params = await props.params
   const posts = allCoreContent(sortPosts(allBlogs))

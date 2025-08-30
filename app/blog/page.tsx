@@ -7,6 +7,9 @@ const POSTS_PER_PAGE = 5
 
 export const metadata = genPageMetadata({ title: 'Blog' })
 
+// Enable ISR - revalidate every hour
+export const revalidate = 3600
+
 export default async function BlogPage(props: { searchParams: Promise<{ page: string }> }) {
   const posts = allCoreContent(sortPosts(allBlogs))
   const pageNumber = 1

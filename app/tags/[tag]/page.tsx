@@ -34,6 +34,9 @@ export const generateStaticParams = async () => {
   }))
 }
 
+// Enable ISR - revalidate every hour
+export const revalidate = 3600
+
 export default async function TagPage(props: { params: Promise<{ tag: string }> }) {
   const params = await props.params
   const tag = decodeURI(params.tag)

@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import path from 'path'
 import { mkdir, writeFile, access } from 'fs/promises'
+import { revalidatePath } from 'next/cache'
+import { GitHubAPI } from '../../../../lib/github'
 
 type RequestBody = {
   frontmatter: Record<string, unknown>
@@ -100,7 +102,44 @@ export async function POST(request: Request) {
     const content = `${fmText}\n\n${mdxBody || ''}\n`
     await writeFile(filePath, content, 'utf-8')
 
-    return NextResponse.json({ ok: true, path: `data/blog/${filename}` })
+    // Push to GitHub if configured
+    let githubResult = null
+    if (process.env.GITHUB_TOKEN && process.env.GITHUB_OWNER && process.env.GITHUB_REPO) {
+      try {
+        const github = new GitHubAPI(
+          process.env.GITHUB_TOKEN,
+          process.env.GITHUB_OWNER,
+          process.env.GITHUB_REPO
+        )
+        
+        const commitMessage = `Add/Update blog post: ${frontmatter.title}`
+        githubResult = await github.createOrUpdateFile(
+          `data/blog/${filename}`,
+          content,
+          commitMessage
+        )
+      } catch (error) {
+        console.error('GitHub push error:', error)
+        // Don't fail the save operation if GitHub push fails
+      }
+    }
+
+    // Revalidate blog pages to show new content
+    try {
+      revalidatePath('/blog')
+      revalidatePath('/blog/[page]', 'page')
+      revalidatePath('/tags')
+      revalidatePath('/tags/[tag]', 'page')
+      revalidatePath('/tags/[tag]/page/[page]', 'page')
+    } catch (error) {
+      console.error('Revalidation error:', error)
+    }
+
+    return NextResponse.json({ 
+      ok: true, 
+      path: `data/blog/${filename}`,
+      github: githubResult ? { committed: true, sha: (githubResult as any).commit?.sha } : null
+    })
   } catch (e) {
     console.error(e)
     return NextResponse.json({ error: 'Unexpected error' }, { status: 500 })

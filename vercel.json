@@ -1,0 +1,27 @@
+{
+  "functions": {
+    "app/api/revalidate/route.ts": {
+      "maxDuration": 30
+    },
+    "app/api/webhooks/github/route.ts": {
+      "maxDuration": 30
+    },
+    "app/api/editor/save/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/editor/github-status/route.ts": {
+      "maxDuration": 30
+    }
+  },
+  "headers": [
+    {
+      "source": "/blog/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=3600, stale-while-revalidate=86400"
+        }
+      ]
+    }
+  ]
+}

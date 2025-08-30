@@ -77,6 +77,9 @@ export const generateStaticParams = async () => {
   return allBlogs.map((p) => ({ slug: p.slug.split('/').map((name) => decodeURI(name)) }))
 }
 
+// Enable ISR - revalidate every hour
+export const revalidate = 3600
+
 export default async function Page(props: { params: Promise<{ slug: string[] }> }) {
   const params = await props.params
   const slug = decodeURI(params.slug.join('/'))
@@ -113,7 +116,13 @@ export default async function Page(props: { params: Promise<{ slug: string[] }> 
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <Layout content={mainContent} authorDetails={authorDetails} next={next} prev={prev}>
-        <MDXLayoutRenderer code={post.body.code} components={components} toc={post.toc} />
+        {post.body?.code ? (
+          <MDXLayoutRenderer code={post.body.code} components={components} toc={post.toc} />
+        ) : (
+          <div className="prose dark:prose-invert">
+            <p>Post content not available.</p>
+          </div>
+        )}
       </Layout>
     </>
   )

@@ -52,6 +52,11 @@ export default function MDXEditorPage() {
   const [dirty, setDirty] = useState<boolean>(false)
   const [loadingExisting, setLoadingExisting] = useState<boolean>(false)
   const [existingPosts, setExistingPosts] = useState<{ title: string; slug: string }[]>([])
+  const [githubStatus, setGitHubStatus] = useState<{
+    configured: boolean
+    owner: string | null
+    repo: string | null
+  } | null>(null)
 
   const slug = useMemo(() => slugify(frontmatter.title || 'untitled'), [frontmatter.title])
 
@@ -77,8 +82,23 @@ export default function MDXEditorPage() {
         throw new Error(data?.error || 'Failed to save')
       }
       const data = await res.json()
-      setMessage(`Saved: ${data.path}`)
+      
+      if (data.github?.committed) {
+        setMessage(`Saved: ${data.path} - Pushed to GitHub! Revalidating pages...`)
+      } else {
+        setMessage(`Saved: ${data.path} - Revalidating pages...`)
+      }
+      
       setDirty(false)
+      
+      // Wait a moment for revalidation to complete
+      setTimeout(() => {
+        if (data.github?.committed) {
+          setMessage(`✅ Published: ${data.path} - Pushed to GitHub & pages updated!`)
+        } else {
+          setMessage(`✅ Saved: ${data.path} - Pages updated!`)
+        }
+      }, 2000)
     } catch (err) {
       const error = err as Error
       setMessage(error.message)
@@ -139,6 +159,25 @@ export default function MDXEditorPage() {
       }
     }
     fetchPosts()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Check GitHub configuration status
+  useEffect(() => {
+    let cancelled = false
+    async function checkGitHubStatus() {
+      try {
+        const res = await fetch('/api/editor/github-status')
+        if (!res.ok) return
+        const data = await res.json()
+        if (!cancelled) setGitHubStatus(data)
+      } catch (error) {
+        console.error('Failed to check GitHub status:', error)
+      }
+    }
+    checkGitHubStatus()
     return () => {
       cancelled = true
     }
@@ -228,6 +267,30 @@ export default function MDXEditorPage() {
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
       <h1 className="mb-6 text-3xl font-bold">New MDX Post</h1>
+      
+      {/* GitHub Status */}
+      {githubStatus && (
+        <div className={`mb-4 rounded-lg p-3 text-sm ${
+          githubStatus.configured 
+            ? 'bg-green-100 border border-green-300 text-green-800 dark:bg-green-900 dark:border-green-700 dark:text-green-200' 
+            : 'bg-yellow-100 border border-yellow-300 text-yellow-800 dark:bg-yellow-900 dark:border-yellow-700 dark:text-yellow-200'
+        }`}>
+          {githubStatus.configured ? (
+            <div className="flex items-center gap-2">
+              <span>✅</span>
+              <span>GitHub Integration: {githubStatus.owner}/{githubStatus.repo}</span>
+              <span className="text-xs">(Posts will be automatically pushed to GitHub)</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <span>⚠️</span>
+              <span>GitHub Integration: Not configured</span>
+              <span className="text-xs">(Posts will be saved locally only)</span>
+            </div>
+          )}
+        </div>
+      )}
+      
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="rounded border border-gray-300 p-3 dark:bg-gray-900">
           <div className="mb-2 text-sm font-medium">Edit existing post</div>

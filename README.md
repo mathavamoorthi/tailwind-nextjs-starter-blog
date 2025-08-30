@@ -11,9 +11,77 @@
 
 This is a [Next.js](https://nextjs.org/), [Tailwind CSS](https://tailwindcss.com/) blogging starter template. Version 2 is based on Next App directory with [React Server Component](https://nextjs.org/docs/getting-started/react-essentials#server-components) and uses [Contentlayer](https://www.contentlayer.dev/) to manage markdown content.
 
+## ✨ New Features in This Fork
+
+- **🚀 Incremental Static Regeneration (ISR)** - Runtime blog updates without rebuilding
+- **✏️ Built-in Editor** - Create and edit posts directly from the browser
+- **🔄 Automatic Revalidation** - Content updates trigger page revalidation
+- **🔗 GitHub Integration** - Optional webhook for automatic updates on push
+- **⚡ Vercel Optimized** - Perfect for deployment with optimal caching
+
 Probably the most feature-rich Next.js markdown blogging template out there. Easily configurable and customizable. Perfect as a replacement to existing Jekyll and Hugo individual blogs.
 
 Check out the documentation below to get started.
+
+## 🚀 ISR Setup for Runtime Blog Updates
+
+This fork includes Incremental Static Regeneration (ISR) to enable runtime blog publishing and editing. Here's how to set it up:
+
+### 1. Environment Variables
+Create a `.env.local` file in your project root:
+```bash
+# ISR Revalidation
+REVALIDATION_SECRET=your-super-secret-key-here-change-this
+
+# GitHub Integration (Required for auto-push)
+GITHUB_TOKEN=your-github-personal-access-token
+GITHUB_OWNER=your-github-username
+GITHUB_REPO=your-repository-name
+
+# GitHub Webhook (Optional)
+GITHUB_WEBHOOK_SECRET=your-github-webhook-secret-here
+
+# Editor Authentication
+EDITOR_USERS=username1:password1:author1,username2:password2:author2
+```
+
+### 2. Deploy to Vercel
+- Push your code to GitHub
+- Connect your repository to Vercel
+- Add the environment variables in Vercel dashboard
+- Deploy!
+
+### 3. How It Works
+- **Static Generation**: Pages are built at build time for fast initial loads
+- **Runtime Updates**: New posts appear immediately when saved through the editor
+- **Automatic Revalidation**: Content changes trigger page updates without rebuilding
+- **GitHub Integration**: Optional webhook automatically updates on push to main branch
+
+### 4. Editor Access
+- Navigate to `/editor` to create/edit posts
+- Use the authentication configured in `EDITOR_USERS`
+- Posts are automatically revalidated and appear on your blog
+
+### 5. GitHub Integration
+- **Automatic Push**: Posts are automatically committed and pushed to GitHub
+- **Real-time Sync**: Your repository stays in sync with your blog content
+- **Version Control**: Every post change is tracked in Git history
+- **Collaboration**: Multiple authors can edit and see changes in real-time
+
+#### GitHub Setup Steps:
+1. **Create Personal Access Token**:
+   - Go to GitHub → Settings → Developer settings → Personal access tokens
+   - Generate new token with `repo` scope
+   - Copy the token
+
+2. **Add Environment Variables**:
+   ```bash
+   GITHUB_TOKEN=ghp_your_token_here
+   GITHUB_OWNER=your-username
+   GITHUB_REPO=your-repo-name
+   ```
+
+3. **Deploy**: Your editor will now automatically push to GitHub!
 
 Facing issues? Check the [FAQ page](https://github.com/timlrx/tailwind-nextjs-starter-blog/wiki) and do a search on past issues. Feel free to open a new issue if none has been posted previously.
 

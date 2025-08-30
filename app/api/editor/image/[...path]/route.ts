@@ -36,7 +36,7 @@ export async function GET(
     else if (ext === '.webp') contentType = 'image/webp'
     else if (ext === '.svg') contentType = 'image/svg+xml'
 
-    return new NextResponse(imageBuffer, {
+    return new NextResponse(new Uint8Array(imageBuffer), {
       headers: {
         'Content-Type': contentType,
         'Cache-Control': 'no-cache, no-store, must-revalidate',

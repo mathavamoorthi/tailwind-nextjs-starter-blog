@@ -229,15 +229,28 @@ export default function MDXEditorPage() {
       const data = await res.json().catch(() => ({}))
       throw new Error(data?.error || 'Upload failed')
     }
-    const data = await res.json() as { url: string; message?: string; local?: boolean; github?: { committed: boolean; sha: string }; filename?: string }
+    const data = await res.json() as { 
+      url: string; 
+      message?: string; 
+      tempStored?: boolean; 
+      githubCommitted?: boolean; 
+      githubError?: string; 
+      filename?: string 
+    }
     
     // Show upload status message
     if (data.message) {
       setMessage(data.message)
     }
     
-    // Show preview status
-    setMessage('✅ Image uploaded for preview (will be committed to GitHub when you save the post)')
+    // Show detailed status
+    if (data.githubCommitted) {
+      setMessage(`✅ Image uploaded and committed to GitHub: ${data.filename}`)
+    } else if (data.githubError) {
+      setMessage(`⚠️ Image uploaded for preview (GitHub commit failed: ${data.githubError})`)
+    } else if (data.tempStored) {
+      setMessage('✅ Image uploaded for preview (GitHub not configured)')
+    }
     
     return data.url
   }

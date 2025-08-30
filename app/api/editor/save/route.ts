@@ -163,85 +163,12 @@ export async function POST(request: Request) {
       console.error('Revalidation error:', error)
     }
 
-    // Commit any temporary images to GitHub
-    let imageCommitResult: any = null
-    if (process.env.GITHUB_TOKEN && process.env.GITHUB_OWNER && process.env.GITHUB_REPO) {
-      try {
-        // Create a new GitHub API instance for image commits
-        const github = new GitHubAPI(
-          process.env.GITHUB_TOKEN,
-          process.env.GITHUB_OWNER,
-          process.env.GITHUB_REPO
-        )
-        
-        // Directly commit images instead of making API call
-        const baseDir = process.env.VERCEL ? '/tmp' : process.cwd()
-        const tempImageDir = path.join(baseDir, 'public', 'static', 'images', slug)
-        
-        let committedImages: string[] = []
-        let failedImages: string[] = []
-        
-        try {
-          // Check if temp directory exists
-          await access(tempImageDir)
-          
-          // Read all files in the temp directory
-          const files = await readdir(tempImageDir)
-          
-          // Filter for image files
-          const imageFiles = files.filter(file => 
-            /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(file)
-          )
-
-          if (imageFiles.length > 0) {
-            // Commit each image to GitHub
-            for (const filename of imageFiles) {
-              try {
-                const imagePath = path.join(tempImageDir, filename)
-                const imageBuffer = await readFile(imagePath)
-                const base64Content = imageBuffer.toString('base64')
-                
-                const commitMessage = `Add image for blog post: ${slug} - ${filename}`
-                
-                await github.createOrUpdateFile(
-                  `public/static/images/${slug}/${filename}`,
-                  base64Content,
-                  commitMessage
-                )
-                
-                committedImages.push(filename)
-                console.log(`Successfully committed image to GitHub: ${filename}`)
-                
-                // Clean up temp file after successful commit
-                try {
-                  await unlink(imagePath)
-                  console.log(`Cleaned up temp file: ${imagePath}`)
-                } catch (cleanupError) {
-                  console.warn(`Failed to clean up temp file: ${imagePath}`, cleanupError)
-                }
-                
-              } catch (error) {
-                console.error(`Failed to commit image ${filename}:`, error)
-                failedImages.push(filename)
-              }
-            }
-            
-            imageCommitResult = {
-              message: `Committed ${committedImages.length} images to GitHub`,
-              committed: committedImages,
-              failed: failedImages,
-              total: imageFiles.length
-            }
-          }
-        } catch (error) {
-          console.error('Error accessing temp image directory:', error)
-          // No images to commit
-        }
-      } catch (error) {
-        console.error('Image commit error:', error)
-        // Don't fail the save operation if image commit fails
-      }
-    }
+    // Note: Images are now committed to GitHub immediately when uploaded
+    // No need to scan for images during save operation
+    console.log(`📝 Blog post saved - images were committed to GitHub during upload`)
+    
+    // Set imageCommitResult to null since we don't need it anymore
+    const imageCommitResult = null
 
     return NextResponse.json({ 
       ok: true, 
@@ -250,9 +177,7 @@ export async function POST(request: Request) {
       local: localWriteSuccess,
       images: imageCommitResult,
       message: githubResult 
-        ? (imageCommitResult && typeof imageCommitResult === 'object' && 'committed' in imageCommitResult && Array.isArray((imageCommitResult as any).committed) && (imageCommitResult as any).committed.length > 0
-            ? `Blog post and ${(imageCommitResult as any).committed.length} images committed to GitHub successfully`
-            : 'Blog post committed to GitHub successfully')
+        ? 'Blog post committed to GitHub successfully'
         : localWriteSuccess 
           ? 'Blog post saved locally (GitHub not configured)' 
           : 'Blog post saved'

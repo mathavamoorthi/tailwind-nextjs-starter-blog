@@ -7,6 +7,69 @@ import remarkGfm from 'remark-gfm'
 import remarkRehype from 'remark-rehype'
 import rehypeStringify from 'rehype-stringify'
 
+// Custom Image component for preview that handles both temp and production URLs
+function PreviewImage({ src, alt }: { src: string; alt: string }) {
+  const [imageSrc, setImageSrc] = useState(src)
+  const [isLoading, setIsLoading] = useState(true)
+  const [hasError, setHasError] = useState(false)
+
+  useEffect(() => {
+    setImageSrc(src)
+    setIsLoading(true)
+    setHasError(false)
+  }, [src])
+
+  const handleError = () => {
+    // If the image fails to load, try the preview API endpoint
+    if (src.startsWith('/static/images/') && process.env.NODE_ENV === 'development') {
+      const previewUrl = src.replace('/static/images/', '/api/editor/image/')
+      setImageSrc(previewUrl)
+    } else {
+      setHasError(true)
+    }
+  }
+
+  if (hasError) {
+    return (
+      <div className="my-4 rounded border border-red-300 bg-red-50 p-4 text-center text-red-600 dark:border-red-700 dark:bg-red-900 dark:text-red-400">
+        <p>Failed to load image: {src}</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="my-4">
+      {isLoading && (
+        <div className="mb-2 text-center text-sm text-gray-500">
+          Loading image...
+        </div>
+      )}
+      <img
+        src={imageSrc}
+        alt={alt}
+        className="mx-auto max-w-full rounded border border-gray-300 dark:border-gray-600"
+        onLoad={() => setIsLoading(false)}
+        onError={handleError}
+        style={{ display: isLoading ? 'none' : 'block' }}
+      />
+    </div>
+  )
+}
+
+// Simple preview renderer that handles images
+function PreviewRenderer({ html }: { html: string }) {
+  if (!html) return null
+
+  // For now, we'll use dangerouslySetInnerHTML but with a custom CSS approach
+  // to handle image loading states and fallbacks
+  return (
+    <div 
+      dangerouslySetInnerHTML={{ __html: html }}
+      className="preview-content"
+    />
+  )
+}
+
 type Frontmatter = {
   title: string
   date: string
@@ -229,16 +292,22 @@ export default function MDXEditorPage() {
       const data = await res.json().catch(() => ({}))
       throw new Error(data?.error || 'Upload failed')
     }
-    const data = await res.json() as { url: string; message?: string; local?: boolean; github?: { committed: boolean; sha: string }; filename?: string }
+    const data = await res.json() as { 
+      url: string; 
+      previewUrl: string;
+      message?: string; 
+      local?: boolean; 
+      github?: { committed: boolean; sha: string }; 
+      filename?: string 
+    }
     
     // Show upload status message
     if (data.message) {
       setMessage(data.message)
     }
     
-    // Show preview status
-    setMessage('✅ Image uploaded for preview (will be committed to GitHub when you save the post)')
-    
+    // Return the final production URL that will work after build
+    // This ensures the MDX content is correct for production
     return data.url
   }
 
@@ -288,6 +357,94 @@ export default function MDXEditorPage() {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
+      {/* Custom CSS for image preview handling */}
+      <style jsx>{`
+        .preview-content img {
+          max-width: 100%;
+          height: auto;
+          border-radius: 0.375rem;
+          border: 1px solid #d1d5db;
+          margin: 1rem auto;
+          display: block;
+          transition: all 0.3s ease;
+        }
+        
+        /* Production image paths (will be committed to GitHub) */
+        .preview-content img[src*="/static/images/"] {
+          opacity: 0.8;
+          border-color: #10b981;
+          position: relative;
+        }
+        
+        .preview-content img[src*="/static/images/"]:hover {
+          opacity: 1;
+          transform: scale(1.02);
+          box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+        }
+        
+        /* Preview image paths (temporary API endpoint) */
+        .preview-content img[src*="/api/editor/image/"] {
+          opacity: 1;
+          border-color: #f59e0b;
+          position: relative;
+        }
+        
+        .preview-content img[src*="/api/editor/image/"]:hover {
+          transform: scale(1.02);
+          box-shadow: 0 4px 12px rgba(245, 158, 11, 0.2);
+        }
+        
+        /* Image loading states */
+        .preview-content img:not([src]) {
+          background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+          background-size: 200% 100%;
+          animation: loading 1.5s infinite;
+          min-height: 200px;
+        }
+        
+        @keyframes loading {
+          0% { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
+        
+        /* Dark mode support */
+        @media (prefers-color-scheme: dark) {
+          .preview-content img {
+            border-color: #4b5563;
+          }
+          
+          .preview-content img[src*="/static/images/"] {
+            border-color: #059669;
+          }
+          
+          .preview-content img[src*="/api/editor/image/"] {
+            border-color: #d97706;
+          }
+          
+          .preview-content img:not([src]) {
+            background: linear-gradient(90deg, #374151 25%, #4b5563 50%, #374151 75%);
+          }
+        }
+        
+        /* Image upload success indicator */
+        .image-upload-success {
+          position: relative;
+        }
+        
+        .image-upload-success::after {
+          content: "✓ Ready for GitHub";
+          position: absolute;
+          top: -8px;
+          right: -8px;
+          background: #10b981;
+          color: white;
+          font-size: 10px;
+          padding: 2px 6px;
+          border-radius: 10px;
+          font-weight: 500;
+        }
+      `}</style>
+      
       <h1 className="mb-6 text-3xl font-bold">New MDX Post</h1>
       
       {/* GitHub Status */}
@@ -455,8 +612,9 @@ export default function MDXEditorPage() {
           <span className="mb-1 text-sm font-medium">Live Preview</span>
           <div
             className="prose max-w-none rounded border border-gray-300 p-3 dark:prose-invert dark:bg-gray-900"
-            dangerouslySetInnerHTML={{ __html: previewHtml }}
-          />
+          >
+            <PreviewRenderer html={previewHtml} />
+          </div>
         </div>
 
         <div className="flex items-center gap-3">

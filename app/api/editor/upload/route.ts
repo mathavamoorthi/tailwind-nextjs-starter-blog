@@ -45,14 +45,20 @@ export async function POST(request: Request) {
       
       console.log('Successfully stored image in temp for preview:', filePath)
       
-      // Return temporary URL for immediate preview
-      const publicUrl = process.env.VERCEL 
-        ? `/api/editor/image/${slug}/${filename}` // Temporary API endpoint
-        : `/static/images/${slug}/${filename}` // Local development
+      // Return the FINAL GitHub path that will work after build
+      // This ensures the MDX content is correct for production
+      const finalImageUrl = `/static/images/${slug}/${filename}`
+      
+      // For preview, we'll serve from the temp location via API
+      // For production, this will be the correct static file path
+      const previewUrl = process.env.VERCEL 
+        ? `/api/editor/image/${slug}/${filename}` // Temporary API endpoint for preview
+        : finalImageUrl // Local development uses static files directly
       
       return NextResponse.json({ 
         ok: true, 
-        url: publicUrl, 
+        url: finalImageUrl, // This is what gets inserted into MDX
+        previewUrl: previewUrl, // This is for immediate preview
         filename,
         tempPath: filePath,
         message: '✅ Image uploaded for preview (will be committed to GitHub when you save the post)'

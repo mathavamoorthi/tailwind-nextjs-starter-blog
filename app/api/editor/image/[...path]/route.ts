@@ -19,13 +19,18 @@ export async function GET(
     // Only allow access to images in /tmp for security
     const imagePath = path.join('/tmp', 'public', 'static', 'images', slug, filename)
     
+    console.log(`🔍 Serving image: ${imagePath}`)
+    
     try {
       await access(imagePath)
+      console.log(`✅ Image found: ${imagePath}`)
     } catch {
+      console.log(`❌ Image not found: ${imagePath}`)
       return NextResponse.json({ error: 'Image not found' }, { status: 404 })
     }
 
     const imageBuffer = await readFile(imagePath)
+    console.log(`📦 Image loaded: ${imageBuffer.length} bytes`)
     
     // Determine content type based on file extension
     const ext = path.extname(filename).toLowerCase()
@@ -41,7 +46,8 @@ export async function GET(
         'Content-Type': contentType,
         'Cache-Control': 'no-cache, no-store, must-revalidate',
         'Pragma': 'no-cache',
-        'Expires': '0'
+        'Expires': '0',
+        'Access-Control-Allow-Origin': '*',
       }
     })
   } catch (error) {

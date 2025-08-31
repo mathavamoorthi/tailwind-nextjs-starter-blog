@@ -101,8 +101,12 @@ export async function POST(request: Request) {
       if (content.includes('blob.vercel-storage.com') || content.includes('vercel-storage.com')) {
         console.log('🔄 Processing Vercel Blob images...')
         
-        // For internal API calls, use relative URL to avoid authentication issues
-        const processResponse = await fetch('/api/editor/process-blob-images', {
+        // For server-side API calls, we need to use the full URL
+        const baseUrl = process.env.VERCEL_URL 
+          ? `https://${process.env.VERCEL_URL}` 
+          : 'http://localhost:3000'
+        
+        const processResponse = await fetch(`${baseUrl}/api/editor/process-blob-images`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -157,9 +161,17 @@ export async function POST(request: Request) {
         )
         
         const commitMessage = `Add/Update blog post: ${frontmatter.title}`
+        
+        // Encode the MDX content as base64 for GitHub API
+        const base64Content = Buffer.from(processedContent, 'utf-8').toString('base64')
+        
+        console.log(`📄 MDX Content length: ${processedContent.length} characters`)
+        console.log(`📄 Base64 Content length: ${base64Content.length} characters`)
+        console.log(`📄 Base64 validation: ${/^[A-Za-z0-9+/]*={0,2}$/.test(base64Content) ? '✅ Valid' : '❌ Invalid'}`)
+        
         githubResult = await github.createOrUpdateFile(
           `data/blog/${filename}`,
-          processedContent, // Use processedContent for GitHub
+          base64Content, // Send base64 encoded content
           commitMessage
         )
         
@@ -186,7 +198,7 @@ export async function POST(request: Request) {
         }
 
         const filePath = path.join(dir, filename)
-        await writeFile(filePath, processedContent, 'utf-8') // Use processedContent for local write
+        await writeFile(filePath, processedContent, 'utf-8') // Use processedContent for local write (not base64)
         localWriteSuccess = true
         console.log('Successfully wrote locally:', filePath)
       } catch (localError) {

@@ -2,7 +2,7 @@
 
 # Tailwind Nextjs Starter Blog sample
 # Tailwind Nextjs Starter Blog test2
-# Tailwind Nextjs Starter Blog testtttttttt1
+# Tailwind Nextjs Starter Blog 
 
 [![GitHub Repo stars](https://img.shields.io/github/stars/timlrx/tailwind-nextjs-starter-blog?style=social)](https://GitHub.com/timlrx/tailwind-nextjs-starter-blog/stargazers/)
 [![GitHub forks](https://img.shields.io/github/forks/timlrx/tailwind-nextjs-starter-blog?style=social)](https://github.com/timlrx/tailwind-nextjs-starter-blog/forks)

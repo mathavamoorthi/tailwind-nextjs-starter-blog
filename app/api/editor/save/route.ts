@@ -89,6 +89,12 @@ export async function POST(request: Request) {
       // Force authors to be the authenticated author only
       fm.authors = [actorAuthor]
     }
+    
+    // Add draft status and timestamps
+    fm.status = 'draft'
+    fm.createdAt = new Date().toISOString()
+    fm.updatedAt = new Date().toISOString()
+    
     const fmText = serializeFrontmatter(fm)
     const content = `${fmText}\n\n${mdxBody || ''}\n`
 
@@ -218,7 +224,7 @@ export async function POST(request: Request) {
           process.env.GITHUB_REPO
         )
         
-        const commitMessage = `Add/Update blog post: ${frontmatter.title}`
+        const commitMessage = `Add/Update draft post: ${frontmatter.title}`
         
         // Encode the MDX content as base64 for GitHub API
         const base64Content = Buffer.from(processedContent, 'utf-8').toString('base64')
@@ -228,7 +234,7 @@ export async function POST(request: Request) {
         console.log(`📄 Base64 validation: ${/^[A-Za-z0-9+/]*={0,2}$/.test(base64Content) ? '✅ Valid' : '❌ Invalid'}`)
         
         githubResult = await github.createOrUpdateFile(
-          `data/blog/${filename}`,
+          `data/drafts/${filename}`,
           base64Content, // Send base64 encoded content
           commitMessage
         )
@@ -247,7 +253,7 @@ export async function POST(request: Request) {
       try {
         // Use /tmp for Vercel or current working directory for local development
         const baseDir = process.env.VERCEL ? '/tmp' : process.cwd()
-        const dir = path.join(baseDir, 'data', 'blog')
+        const dir = path.join(baseDir, 'data', 'drafts')
         
         try {
           await access(dir)
@@ -291,17 +297,17 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ 
       ok: true, 
-      path: `data/blog/${filename}`,
+      path: `data/drafts/${filename}`,
       github: githubResult ? { committed: true, sha: (githubResult as any).commit?.sha } : null,
       local: localWriteSuccess,
       images: imageProcessingResult,
       message: githubResult 
         ? imageProcessingResult && imageProcessingResult.processed && imageProcessingResult.processed.length > 0
-          ? `Blog post committed to GitHub successfully! ${imageProcessingResult.processed.length} images processed and committed. Vercel will auto-deploy.`
-          : 'Blog post committed to GitHub successfully! Vercel will auto-deploy.'
+          ? `Draft saved successfully! ${imageProcessingResult.processed.length} images processed. Awaiting admin approval.`
+          : 'Draft saved successfully! Awaiting admin approval.'
         : localWriteSuccess 
-          ? 'Blog post saved locally (GitHub not configured)' 
-          : 'Blog post saved'
+          ? 'Draft saved locally (GitHub not configured)' 
+          : 'Draft saved'
     })
   } catch (e) {
     console.error(e)

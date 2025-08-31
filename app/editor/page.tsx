@@ -85,15 +85,15 @@ export default function MDXEditorPage() {
       
       // Show appropriate message based on save result
       if (data.github?.committed) {
-        if (data.images && data.images.committed && data.images.committed.length > 0) {
-          setMessage(`✅ Saved: ${data.path} - Blog post and ${data.images.committed.length} images committed to GitHub! Revalidating pages...`)
+        if (data.images && data.images.processed && data.images.processed.length > 0) {
+          setMessage(`✅ Draft saved: ${data.path} - ${data.images.processed.length} images processed. Awaiting admin approval.`)
         } else {
-          setMessage(`✅ Saved: ${data.path} - Pushed to GitHub! Revalidating pages...`)
+          setMessage(`✅ Draft saved: ${data.path} - Awaiting admin approval.`)
         }
       } else if (data.local) {
-        setMessage(`✅ Saved: ${data.path} - Saved locally (GitHub not configured)`)
+        setMessage(`✅ Draft saved: ${data.path} - Saved locally (GitHub not configured)`)
       } else {
-        setMessage(`✅ Saved: ${data.path} - Revalidating pages...`)
+        setMessage(`✅ Draft saved: ${data.path} - Awaiting admin approval.`)
       }
       
       setDirty(false)
@@ -101,15 +101,15 @@ export default function MDXEditorPage() {
       // Wait a moment for revalidation to complete
       setTimeout(() => {
         if (data.github?.committed) {
-          if (data.images && data.images.committed && data.images.committed.length > 0) {
-            setMessage(`✅ Published: ${data.path} - Blog post and ${data.images.committed.length} images committed to GitHub & pages updated!`)
+          if (data.images && data.images.processed && data.images.processed.length > 0) {
+            setMessage(`✅ Draft saved: ${data.path} - ${data.images.processed.length} images processed. Awaiting admin approval.`)
           } else {
-            setMessage(`✅ Published: ${data.path} - Pushed to GitHub & pages updated!`)
+            setMessage(`✅ Draft saved: ${data.path} - Awaiting admin approval.`)
           }
         } else if (data.local) {
-          setMessage(`✅ Saved: ${data.path} - Saved locally`)
+          setMessage(`✅ Draft saved: ${data.path} - Saved locally`)
         } else {
-          setMessage(`✅ Saved: ${data.path} - Pages updated!`)
+          setMessage(`✅ Draft saved: ${data.path} - Awaiting admin approval.`)
         }
       }, 2000)
     } catch (err) {

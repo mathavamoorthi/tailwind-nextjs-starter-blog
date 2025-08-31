@@ -101,44 +101,102 @@ export async function POST(request: Request) {
       if (content.includes('blob.vercel-storage.com') || content.includes('vercel-storage.com')) {
         console.log('🔄 Processing Vercel Blob images...')
         
-        // For server-side API calls, we need to use the full URL
-        const baseUrl = process.env.VERCEL_URL 
-          ? `https://${process.env.VERCEL_URL}` 
-          : 'http://localhost:3000'
-        
-        const processResponse = await fetch(`${baseUrl}/api/editor/process-blob-images`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            mdxContent: content,
-            slug: slug
-          }),
-        })
-        
-        if (processResponse.ok) {
-          const processData = await processResponse.json()
-          processedContent = processData.processedContent
-          imageProcessingResult = processData.images
-          console.log(`✅ Processed ${processData.images.processed.length} images successfully`)
-          
-          // Debug: Check if Blob URLs were replaced
-          const blobUrlsInProcessed = processedContent.match(/blob\.vercel-storage\.com|vercel-storage\.com/g)
-          if (blobUrlsInProcessed && blobUrlsInProcessed.length > 0) {
-            console.warn(`⚠️ WARNING: ${blobUrlsInProcessed.length} Blob URLs still exist in processed content!`)
-            console.warn('This means images will still consume Blob bandwidth in production!')
-          } else {
-            console.log('✅ All Blob URLs successfully replaced - images will use local paths in production')
-          }
+        // Check if GitHub is configured
+        if (!process.env.GITHUB_TOKEN || !process.env.GITHUB_OWNER || !process.env.GITHUB_REPO) {
+          console.warn('⚠️ GitHub not configured - skipping blob image processing')
         } else {
-          const errorText = await processResponse.text()
-          console.error('❌ Process blob images failed:', {
-            status: processResponse.status,
-            statusText: processResponse.statusText,
-            error: errorText
-          })
-          console.warn('⚠️ Failed to process blob images, continuing with original content')
+          // Extract all image URLs from the MDX content
+          const imageRegex = /!\[([^\]]*)\]\(([^)]+)\)/g
+          const images: Array<{blobUrl: string, filename: string, localPath: string}> = []
+          let match
+
+          while ((match = imageRegex.exec(content)) !== null) {
+            const [, alt, url] = match
+            
+            // Check if this is a Vercel Blob URL
+            if (url.includes('blob.vercel-storage.com') || url.includes('vercel-storage.com')) {
+              const filename = url.split('/').pop() || `image-${Date.now()}.png`
+              const localPath = `public/static/images/${slug}/${filename}`
+              
+              images.push({
+                blobUrl: url,
+                filename,
+                localPath
+              })
+            }
+          }
+
+          if (images.length > 0) {
+            console.log(`🔍 Found ${images.length} Vercel Blob images to process`)
+
+            // Create GitHub API instance
+            const github = new GitHubAPI(
+              process.env.GITHUB_TOKEN,
+              process.env.GITHUB_OWNER,
+              process.env.GITHUB_REPO
+            )
+
+            const processedImages: string[] = []
+            const failedImages: string[] = []
+
+            // Process each image
+            for (const image of images) {
+              try {
+                console.log(`📥 Processing image: ${image.filename}`)
+                
+                // Download image from Blob URL
+                const response = await fetch(image.blobUrl)
+                
+                if (!response.ok) {
+                  throw new Error(`Failed to download image: ${response.status} ${response.statusText}`)
+                }
+                
+                const imageBuffer = await response.arrayBuffer()
+                const base64Content = Buffer.from(imageBuffer).toString('base64')
+                
+                console.log(`📊 Image size: ${imageBuffer.byteLength} bytes`)
+                
+                // Commit image to GitHub
+                const commitMessage = `Add image for blog post: ${slug} - ${image.filename}`
+                
+                await github.createOrUpdateFile(
+                  image.localPath,
+                  base64Content,
+                  commitMessage
+                )
+                
+                console.log(`✅ Image committed to GitHub: ${image.localPath}`)
+                
+                // Replace ALL occurrences of this Blob URL with local path in MDX content
+                const localUrl = `/static/images/${slug}/${image.filename}`
+                processedContent = processedContent.replaceAll(image.blobUrl, localUrl)
+                
+                console.log(`🔄 Replaced Blob URL with local path: ${localUrl}`)
+                
+                processedImages.push(image.filename)
+                
+              } catch (error) {
+                console.error(`❌ Failed to process image ${image.filename}:`, error)
+                failedImages.push(image.filename)
+              }
+            }
+            
+            // Final verification: ensure no Blob URLs remain
+            const remainingBlobUrls = processedContent.match(/blob\.vercel-storage\.com|vercel-storage\.com/g)
+            if (remainingBlobUrls && remainingBlobUrls.length > 0) {
+              console.warn(`⚠️ Warning: ${remainingBlobUrls.length} Blob URLs still remain in processed content`)
+            } else {
+              console.log('✅ All Blob URLs successfully replaced with local paths')
+            }
+
+            imageProcessingResult = {
+              processed: processedImages,
+              failed: failedImages,
+              total: images.length
+            }
+          } else {
+            console.log('ℹ️ No Vercel Blob images found in MDX content')
+          }
         }
       }
     } catch (processError) {
@@ -207,8 +265,8 @@ export async function POST(request: Request) {
         // If both GitHub and local write fail, return error
         if (!githubResult) {
           return NextResponse.json({ 
-            error: 'Failed to save blog post. GitHub push failed and local write not permitted.',
-            details: process.env.VERCEL ? 'Running on Vercel with read-only filesystem' : 'Local filesystem write failed'
+            error: 'Failed to save MDX file',
+            details: localError instanceof Error ? localError.message : 'Unknown error'
           }, { status: 500 })
         }
       }

@@ -48,6 +48,14 @@ EDITOR_USERS=writer:pass123:Author Name
 EDITOR_USERS=writer1:pass1:John Doe,writer2:pass2:Jane Smith
 ```
 
+### For GitHub Integration (Required for Production)
+
+```bash
+GITHUB_TOKEN=your_github_token
+GITHUB_OWNER=your_github_username
+GITHUB_REPO=your_repository_name
+```
+
 ## How It Works
 
 1. **Editor Routes**: Middleware shows Basic Auth popup using `EDITOR_USERS`
@@ -55,6 +63,26 @@ EDITOR_USERS=writer1:pass1:John Doe,writer2:pass2:Jane Smith
 3. **Form Login**: Admin users log in via `/admin/login` form
 4. **Credential Storage**: Admin credentials stored in localStorage
 5. **API Protection**: Admin API routes validate credentials on each request
+
+## Admin Approval Process
+
+When an admin approves a draft post:
+
+### Frontmatter Changes
+- `draft: false` - Sets the post as published
+- `status: "published"` - Updates the status
+- `publishedAt: timestamp` - Records when it was published
+- `approvedBy: "admin"` - Tracks who approved it
+
+### File Operations
+1. **Development**: Writes file locally to `data/blog/` and deletes from `data/drafts/`
+2. **Production**: Commits directly to GitHub (handles read-only file system)
+3. **GitHub**: Creates the post in `data/blog/` and deletes from `data/drafts/`
+
+### Error Handling
+- **Read-only file system**: Automatically falls back to GitHub commits
+- **GitHub failures**: Returns detailed error messages
+- **Missing configuration**: Clear error messages for missing environment variables
 
 ## Accessing the Admin Dashboard
 
@@ -73,11 +101,20 @@ This was caused by having both Basic Auth popup AND form login. The fix:
 2. ✅ **Admin routes**: Use form-based login only (using `ADMIN_USERS`)
 3. ✅ **No more double authentication** for admin access
 
+### "Read-only file system" error
+
+This occurs in production environments (Vercel, etc.). The fix:
+
+1. ✅ **GitHub integration**: Automatically commits to GitHub instead of local files
+2. ✅ **Environment detection**: Detects production vs development
+3. ✅ **Fallback handling**: Graceful error handling for file system issues
+
 ### Common Issues
 
 1. **Wrong credentials**: Make sure your `ADMIN_USERS` environment variable is set correctly
 2. **Environment not loaded**: Restart your development server after changing environment variables
 3. **Browser cache**: Clear browser cache and localStorage if authentication issues persist
+4. **GitHub permissions**: Ensure your GitHub token has write access to the repository
 
 ## Security Notes
 
@@ -85,6 +122,7 @@ This was caused by having both Basic Auth popup AND form login. The fix:
 - **Production**: Use secure HTTP-only cookies instead of localStorage
 - **HTTPS**: Always use HTTPS in production for Basic Authentication
 - **Strong Passwords**: Use strong, unique passwords for admin accounts
+- **GitHub Tokens**: Use fine-grained personal access tokens with minimal permissions
 
 ## Example Configuration
 
@@ -92,6 +130,11 @@ This was caused by having both Basic Auth popup AND form login. The fix:
 # .env.local
 EDITOR_USERS=writer1:pass123:John Doe,writer2:pass456:Jane Smith
 ADMIN_USERS=admin:adminpass123,superadmin:superpass456
+
+# GitHub Integration (Required for production)
+GITHUB_TOKEN=ghp_your_token_here
+GITHUB_OWNER=your_username
+GITHUB_REPO=your_repo_name
 
 # Optional fallback for single users
 EDITOR_USER=writer
@@ -113,3 +156,9 @@ ADMIN_PASS=admin
 - No browser popup
 - Better user experience
 - Credentials stored in localStorage
+
+### Admin Approval
+- One-click approve/reject
+- Automatic draft status management
+- GitHub integration for production
+- Clear success/error feedback

@@ -3,6 +3,7 @@ import path from 'path'
 import { readFile, writeFile, mkdir, unlink } from 'fs/promises'
 import { GitHubAPI } from '../../../../lib/github'
 import { revalidatePath } from 'next/cache'
+import matter from 'gray-matter'
 
 // Admin authentication check
 function isAdmin(request: Request): boolean {
@@ -50,19 +51,61 @@ export async function POST(request: Request) {
     }
 
     if (action === 'approve') {
-      // Move draft to published blog
       try {
-        // Ensure blog directory exists
-        await mkdir(path.join(process.cwd(), 'data', 'blog'), { recursive: true })
+        // Parse the draft content to modify frontmatter
+        const { data, content } = matter(draftContent)
         
-        // Write to blog directory
-        await writeFile(blogPath, draftContent, 'utf-8')
-        
-        // Delete the draft
-        await unlink(draftPath)
-        
-        // Commit to GitHub if configured
+        // Update frontmatter for published post
+        const updatedData = {
+          ...data,
+          draft: false, // Set draft to false when approved
+          status: 'published',
+          publishedAt: new Date().toISOString(),
+          approvedBy: 'admin' // You can get this from the request if needed
+        }
+
+        // Reconstruct the file with updated frontmatter
+        const updatedContent = `---\n${Object.entries(updatedData)
+          .map(([key, value]) => {
+            if (typeof value === 'string') {
+              return `${key}: "${value}"`
+            } else if (typeof value === 'boolean') {
+              return `${key}: ${value}`
+            } else {
+              return `${key}: ${JSON.stringify(value)}`
+            }
+          })
+          .join('\n')}\n---\n\n${content}`
+
+        // Check if we're in a production environment (read-only file system)
+        const isProduction = process.env.NODE_ENV === 'production' || 
+                           process.env.VERCEL_ENV === 'production' ||
+                           process.env.NEXT_PUBLIC_VERCEL_ENV === 'production'
+
         let githubResult = null
+        let localWriteSuccess = false
+
+        // Try to write locally first (for development)
+        if (!isProduction) {
+          try {
+            // Ensure blog directory exists
+            await mkdir(path.join(process.cwd(), 'data', 'blog'), { recursive: true })
+            
+            // Write to blog directory
+            await writeFile(blogPath, updatedContent, 'utf-8')
+            
+            // Delete the draft
+            await unlink(draftPath)
+            
+            localWriteSuccess = true
+            console.log('Successfully wrote file locally')
+          } catch (localError) {
+            console.error('Local file write failed:', localError)
+            // Continue to GitHub commit as fallback
+          }
+        }
+
+        // Commit to GitHub (primary method for production, fallback for development)
         if (process.env.GITHUB_TOKEN && process.env.GITHUB_OWNER && process.env.GITHUB_REPO) {
           try {
             const github = new GitHubAPI(
@@ -72,16 +115,38 @@ export async function POST(request: Request) {
             )
 
             const commitMessage = `Publish approved post: ${slug}`
-            const base64Content = Buffer.from(draftContent, 'utf-8').toString('base64')
+            const base64Content = Buffer.from(updatedContent, 'utf-8').toString('base64')
 
+            // Create the blog post in GitHub
             githubResult = await github.createOrUpdateFile(
               `data/blog/${slug}.mdx`,
               base64Content,
               commitMessage
             )
-          } catch (error) {
-            console.error('GitHub commit error:', error)
+
+            // Also delete the draft from GitHub
+            try {
+              await github.deleteFile(
+                `data/drafts/${slug}.mdx`,
+                `Remove approved draft: ${slug}`
+              )
+            } catch (deleteError) {
+              console.error('Failed to delete draft from GitHub:', deleteError)
+              // Don't fail the operation if draft deletion fails
+            }
+
+            console.log('Successfully committed to GitHub')
+          } catch (githubError) {
+            console.error('GitHub commit error:', githubError)
+            
+            // If we're in production and GitHub failed, this is a problem
+            if (isProduction) {
+              throw new Error('Failed to publish to GitHub in production environment')
+            }
           }
+        } else if (isProduction) {
+          // In production, GitHub is required
+          throw new Error('GitHub configuration required for production deployment')
         }
 
         // Revalidate pages
@@ -98,17 +163,22 @@ export async function POST(request: Request) {
         return NextResponse.json({
           success: true,
           message: 'Post approved and published successfully',
-          github: githubResult ? { committed: true } : null
+          github: githubResult ? { committed: true } : null,
+          local: localWriteSuccess,
+          environment: isProduction ? 'production' : 'development'
         })
 
       } catch (error) {
         console.error('Error publishing post:', error)
-        return NextResponse.json({ error: 'Failed to publish post' }, { status: 500 })
+        return NextResponse.json({ 
+          error: 'Failed to publish post',
+          details: error instanceof Error ? error.message : 'Unknown error'
+        }, { status: 500 })
       }
 
     } else if (action === 'reject') {
       // Update draft status to rejected and add feedback
-      const { data, content } = require('gray-matter')(draftContent)
+      const { data, content } = matter(draftContent)
       
       // Add rejection feedback to frontmatter
       const updatedData = {
@@ -120,7 +190,15 @@ export async function POST(request: Request) {
 
       // Reconstruct the file with updated frontmatter
       const updatedContent = `---\n${Object.entries(updatedData)
-        .map(([key, value]) => `${key}: ${typeof value === 'string' ? `"${value}"` : JSON.stringify(value)}`)
+        .map(([key, value]) => {
+          if (typeof value === 'string') {
+            return `${key}: "${value}"`
+          } else if (typeof value === 'boolean') {
+            return `${key}: ${value}`
+          } else {
+            return `${key}: ${JSON.stringify(value)}`
+          }
+        })
         .join('\n')}\n---\n\n${content}`
 
       // Write back to draft

@@ -123,6 +123,31 @@ export class GitHubAPI {
     }
   }
 
+  async deleteFile(path: string, message: string, branch: string = 'main') {
+    try {
+      // Get the file to get its SHA (required for deletion)
+      const existingFile = await this.request(`/contents/${path}?ref=${branch}`)
+      const sha = existingFile.sha
+
+      // Delete the file
+      return this.request(`/contents/${path}`, {
+        method: 'DELETE',
+        body: JSON.stringify({
+          message,
+          sha,
+          branch,
+        }),
+      })
+    } catch (error: any) {
+      if (error.message.includes('404')) {
+        // File doesn't exist, nothing to delete
+        console.log(`File ${path} doesn't exist, nothing to delete`)
+        return { deleted: false, reason: 'File not found' }
+      }
+      throw error
+    }
+  }
+
   async commitFiles(files: Array<{ path: string; content: string }>, message: string, branch: string = 'main') {
     try {
       // Get the latest commit SHA

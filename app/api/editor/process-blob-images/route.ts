@@ -62,12 +62,6 @@ export async function POST(request: Request) {
     console.log(`🔍 Found ${images.length} Vercel Blob images to process`)
 
     // Create GitHub API instance
-    console.log('🔧 GitHub Configuration:', {
-      token: process.env.GITHUB_TOKEN ? '✅ Set' : '❌ Missing',
-      owner: process.env.GITHUB_OWNER || '❌ Missing',
-      repo: process.env.GITHUB_REPO || '❌ Missing'
-    })
-    
     const github = new GitHubAPI(
       process.env.GITHUB_TOKEN,
       process.env.GITHUB_OWNER,
@@ -81,12 +75,10 @@ export async function POST(request: Request) {
     // Process each image
     for (const image of images) {
       try {
-        console.log(`📥 Downloading image from Blob: ${image.filename}`)
+        console.log(`📥 Processing image: ${image.filename}`)
         
         // Download image from Blob URL
-        console.log(`📥 Attempting to download: ${image.blobUrl}`)
         const response = await fetch(image.blobUrl)
-        console.log(`📥 Download response: ${response.status} ${response.statusText}`)
         
         if (!response.ok) {
           throw new Error(`Failed to download image: ${response.status} ${response.statusText}`)
@@ -95,29 +87,11 @@ export async function POST(request: Request) {
         const imageBuffer = await response.arrayBuffer()
         const base64Content = Buffer.from(imageBuffer).toString('base64')
         
-        // Validate base64 content
         console.log(`📊 Image size: ${imageBuffer.byteLength} bytes`)
-        console.log(`📊 Base64 length: ${base64Content.length} characters`)
-        
-        // Test if base64 is valid
-        try {
-          // Check for valid base64 characters
-          if (!/^[A-Za-z0-9+/]*={0,2}$/.test(base64Content)) {
-            throw new Error('Invalid base64 characters detected')
-          }
-          
-          // Test decoding
-          const decoded = Buffer.from(base64Content, 'base64')
-          console.log(`✅ Base64 validation passed - decoded size: ${decoded.length} bytes`)
-        } catch (e) {
-          console.error('❌ Base64 validation failed:', e)
-          throw new Error('Invalid base64 content generated')
-        }
         
         // Commit image to GitHub
         const commitMessage = `Add image for blog post: ${slug} - ${image.filename}`
         
-        console.log(`📤 Committing image to GitHub: ${image.localPath}`)
         await github.createOrUpdateFile(
           image.localPath,
           base64Content,
@@ -128,11 +102,9 @@ export async function POST(request: Request) {
         
         // Replace ALL occurrences of this Blob URL with local path in MDX content
         const localUrl = `/static/images/${slug}/${image.filename}`
-        const beforeCount = (processedContent.match(new RegExp(image.blobUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length
         processedContent = processedContent.replaceAll(image.blobUrl, localUrl)
-        const afterCount = (processedContent.match(new RegExp(image.blobUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length
         
-        console.log(`🔄 Replaced ${beforeCount} occurrences of Blob URL with local path: ${localUrl}`)
+        console.log(`🔄 Replaced Blob URL with local path: ${localUrl}`)
         
         processedImages.push(image.filename)
         
@@ -169,8 +141,7 @@ export async function POST(request: Request) {
     console.error('Process blob images error:', error)
     return NextResponse.json({ 
       error: 'Failed to process blob images',
-      details: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined
+      details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 })
   }
 }

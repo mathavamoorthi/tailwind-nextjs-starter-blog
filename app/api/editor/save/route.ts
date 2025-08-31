@@ -117,6 +117,15 @@ export async function POST(request: Request) {
           processedContent = processData.processedContent
           imageProcessingResult = processData.images
           console.log(`✅ Processed ${processData.images.processed.length} images successfully`)
+          
+          // Debug: Check if Blob URLs were replaced
+          const blobUrlsInProcessed = processedContent.match(/blob\.vercel-storage\.com|vercel-storage\.com/g)
+          if (blobUrlsInProcessed && blobUrlsInProcessed.length > 0) {
+            console.warn(`⚠️ WARNING: ${blobUrlsInProcessed.length} Blob URLs still exist in processed content!`)
+            console.warn('This means images will still consume Blob bandwidth in production!')
+          } else {
+            console.log('✅ All Blob URLs successfully replaced - images will use local paths in production')
+          }
         } else {
           console.warn('⚠️ Failed to process blob images, continuing with original content')
         }

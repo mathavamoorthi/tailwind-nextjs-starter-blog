@@ -97,9 +97,13 @@ export async function POST(request: Request) {
         
         console.log(`✅ Image committed to GitHub: ${image.localPath}`)
         
-        // Replace Blob URL with local path in MDX content
+        // Replace ALL occurrences of this Blob URL with local path in MDX content
         const localUrl = `/static/images/${slug}/${image.filename}`
-        processedContent = processedContent.replace(image.blobUrl, localUrl)
+        const beforeCount = (processedContent.match(new RegExp(image.blobUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length
+        processedContent = processedContent.replaceAll(image.blobUrl, localUrl)
+        const afterCount = (processedContent.match(new RegExp(image.blobUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length
+        
+        console.log(`🔄 Replaced ${beforeCount} occurrences of Blob URL with local path: ${localUrl}`)
         
         processedImages.push(image.filename)
         
@@ -107,6 +111,14 @@ export async function POST(request: Request) {
         console.error(`❌ Failed to process image ${image.filename}:`, error)
         failedImages.push(image.filename)
       }
+    }
+    
+    // Final verification: ensure no Blob URLs remain
+    const remainingBlobUrls = processedContent.match(/blob\.vercel-storage\.com|vercel-storage\.com/g)
+    if (remainingBlobUrls && remainingBlobUrls.length > 0) {
+      console.warn(`⚠️ Warning: ${remainingBlobUrls.length} Blob URLs still remain in processed content`)
+    } else {
+      console.log('✅ All Blob URLs successfully replaced with local paths')
     }
 
     return NextResponse.json({ 
@@ -117,6 +129,10 @@ export async function POST(request: Request) {
         processed: processedImages,
         failed: failedImages,
         total: images.length
+      },
+      verification: {
+        blobUrlsRemaining: remainingBlobUrls ? remainingBlobUrls.length : 0,
+        allReplaced: !remainingBlobUrls || remainingBlobUrls.length === 0
       }
     })
 

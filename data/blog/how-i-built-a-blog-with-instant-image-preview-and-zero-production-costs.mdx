@@ -7,6 +7,7 @@ summary: Instant image preview during editing, zero bandwidth costs in productio
 authors: ["Spideyy"]
 ---
 
+
 # Tailwind Next.js Starter Blog - Complete Documentation
 
 *A modern, feature-rich blog built with Next.js 15, React 19, TypeScript, and Tailwind CSS, featuring a seamless staging/production image workflow.*
@@ -79,13 +80,8 @@ This project is a **production-ready blog** built on the Tailwind Next.js Starte
 
 ### **Staging (Editor Preview)**
 
-```mermaid
-graph LR
-    A[User Uploads Image] --> B[Vercel Blob Storage]
-    B --> C[CDN URL Generated]
-    C --> D[Instant MDX Preview]
-    D --> E[Professional Editing Experience]
-```
+![Staging Preview](/static/images/how-i-built-a-blog-with-instant-image-preview-and-zero-production-costs/1756661027428-untitled-diagram---mermaid-chart-2025-08-31-172318.png)
+
 
 **Benefits:**
 -  **Instant preview** with CDN URLs
@@ -95,14 +91,8 @@ graph LR
 
 ### **Production (Published Blog)**
 
-```mermaid
-graph LR
-    A[Publish Clicked] --> B[Download from Blob]
-    B --> C[Commit to GitHub]
-    C --> D[Update MDX URLs]
-    D --> E[Vercel Auto-Deploy]
-    E --> F[Static Images Served]
-```
+![Production Working](/static/images/how-i-built-a-blog-with-instant-image-preview-and-zero-production-costs/1756661089692-untitled-diagram---mermaid-chart-2025-08-31-172433.png)
+
 
 **Benefits:**
 -  **Images served from static files** (fast & reliable)
@@ -399,18 +389,8 @@ lib/
 
 ### **Data Flow**
 
-```mermaid
-graph TD
-    A[User Uploads Image] --> B[Vercel Blob Storage]
-    B --> C[CDN URL in MDX]
-    C --> D[Editor Preview]
-    D --> E[User Publishes]
-    E --> F[Download from Blob]
-    F --> G[Commit to GitHub]
-    G --> H[Update MDX URLs]
-    H --> I[Vercel Auto-Deploy]
-    I --> J[Static Images Served]
-```
+![Data Flow](/static/images/how-i-built-a-blog-with-instant-image-preview-and-zero-production-costs/1756661200326-untitled-diagram---mermaid-chart-2025-08-31-172626.png)
+
 
 ### **File Organization**
 
@@ -495,4 +475,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 **Built with ❤️ using Next.js, React, TypeScript, and Tailwind CSS**
 
 *This documentation is automatically generated and updated with the project.*
+
 

@@ -101,7 +101,12 @@ export async function POST(request: Request) {
       if (content.includes('blob.vercel-storage.com') || content.includes('vercel-storage.com')) {
         console.log('🔄 Processing Vercel Blob images...')
         
-        const processResponse = await fetch(`${process.env.VERCEL_URL || 'http://localhost:3000'}/api/editor/process-blob-images`, {
+        // Construct the proper URL with protocol
+        const baseUrl = process.env.VERCEL_URL 
+          ? `https://${process.env.VERCEL_URL}` 
+          : 'http://localhost:3000'
+        
+        const processResponse = await fetch(`${baseUrl}/api/editor/process-blob-images`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

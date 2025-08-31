@@ -45,8 +45,15 @@ export class GitHubAPI {
     })
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({}))
-      throw new Error(`GitHub API error: ${response.status} ${error.message || response.statusText}`)
+      const errorText = await response.text()
+      console.error(`GitHub API Error Details:`, {
+        status: response.status,
+        statusText: response.statusText,
+        url: url,
+        error: errorText,
+        contentLength: options.body ? (options.body as string).length : 0
+      })
+      throw new Error(`GitHub API error: ${response.status} ${errorText}`)
     }
 
     return response.json()

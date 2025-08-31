@@ -95,6 +95,25 @@ export async function POST(request: Request) {
         const imageBuffer = await response.arrayBuffer()
         const base64Content = Buffer.from(imageBuffer).toString('base64')
         
+        // Validate base64 content
+        console.log(`📊 Image size: ${imageBuffer.byteLength} bytes`)
+        console.log(`📊 Base64 length: ${base64Content.length} characters`)
+        
+        // Test if base64 is valid
+        try {
+          // Check for valid base64 characters
+          if (!/^[A-Za-z0-9+/]*={0,2}$/.test(base64Content)) {
+            throw new Error('Invalid base64 characters detected')
+          }
+          
+          // Test decoding
+          const decoded = Buffer.from(base64Content, 'base64')
+          console.log(`✅ Base64 validation passed - decoded size: ${decoded.length} bytes`)
+        } catch (e) {
+          console.error('❌ Base64 validation failed:', e)
+          throw new Error('Invalid base64 content generated')
+        }
+        
         // Commit image to GitHub
         const commitMessage = `Add image for blog post: ${slug} - ${image.filename}`
         

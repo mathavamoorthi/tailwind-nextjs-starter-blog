@@ -26,8 +26,8 @@ GITHUB_REPO=your_repository_name
 # Editor Authentication (Required)
 EDITOR_USERS=username:password:author_name
 
-# Vercel Auto-Redeploy (Optional but Recommended)
-VERCEL_DEPLOY_HOOK=https://api.vercel.com/v1/integrations/deploy/your_webhook_id
+# Vercel Auto-Deployment (Already Enabled)
+# No additional configuration needed - Vercel will auto-deploy on GitHub commits
 ```
 
 ## 📋 **How to Get These Values**
@@ -47,11 +47,11 @@ VERCEL_DEPLOY_HOOK=https://api.vercel.com/v1/integrations/deploy/your_webhook_id
 - **Owner**: Your GitHub username
 - **Repo**: Your repository name (e.g., `tailwind-nextjs-starter-blog`)
 
-### **Vercel Deploy Hook**
-1. Go to your Vercel project dashboard
-2. Settings → Git → Deploy Hooks
-3. Create new hook with name "Blog Updates"
-4. Copy the webhook URL
+### **Vercel Auto-Deployment**
+- **Already enabled** in your Vercel project
+- **No additional setup** required
+- **Automatic deployment** happens on every GitHub commit
+- **Faster workflow** - no webhook delays
 
 ## 🚀 **How the Workflow Works**
 
@@ -77,14 +77,14 @@ MDX content with Blob URLs → Real-time rendering → Images visible immediatel
 
 ### **3. Publish Process**
 ```
-Save clicked → Process Blob URLs → Download images → Commit to GitHub → Update MDX → Vercel redeploy
+Save clicked → Process Blob URLs → Download images → Commit to GitHub → Update MDX → Vercel auto-deploys
 ```
 
 - **Blob URLs detected** in MDX content
 - **Images downloaded** from Blob storage
 - **Committed to GitHub** under `public/static/images/{slug}/`
 - **MDX URLs updated** to use local paths
-- **Vercel webhook triggered** for automatic redeployment
+- **Vercel automatically deploys** on GitHub commit
 
 ### **4. Production Rendering**
 ```
@@ -130,11 +130,11 @@ Vercel builds → Images available at /static/images/ → Blog displays perfectl
 3. Ensure repository exists and is accessible
 4. Check GitHub API rate limits
 
-### **Vercel Not Redeploying**
-1. Verify `VERCEL_DEPLOY_HOOK` URL is correct
-2. Check webhook permissions in Vercel
-3. Ensure webhook is enabled for your project
-4. Check Vercel logs for webhook errors
+### **Vercel Not Auto-Deploying**
+1. Verify Vercel project is connected to your GitHub repository
+2. Check that auto-deployment is enabled in Vercel project settings
+3. Ensure GitHub commits are being pushed to the main branch
+4. Check Vercel deployment logs for any build errors
 
 ### **Images Not Visible After Deploy**
 1. Wait for Vercel build to complete (usually 1-2 minutes)
@@ -170,7 +170,7 @@ After setup, your workflow becomes **extremely smooth**:
 1. **Write blog post** with image uploads (instant CDN preview)
 2. **Images appear immediately** in editor preview
 3. **Click "Save MDX"** → Everything processes automatically
-4. **Vercel automatically redeploys** → Blog updates live
+4. **Vercel automatically deploys** → Blog updates live
 5. **Images render perfectly** in production with local paths
 
 ## 🆘 **Need Help?**

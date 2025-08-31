@@ -197,40 +197,10 @@ export async function POST(request: Request) {
       console.error('Revalidation error:', error)
     }
 
-    // Trigger Vercel redeployment to make images visible
-    if (process.env.VERCEL_DEPLOY_HOOK && githubResult) {
-      try {
-        const webhookUrl = process.env.VERCEL_DEPLOY_HOOK
-        console.log('🚀 Triggering Vercel redeployment via webhook...')
-        
-        const webhookResponse = await fetch(webhookUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            ref: 'main',
-            repository: {
-              name: process.env.GITHUB_REPO,
-              owner: process.env.GITHUB_OWNER,
-            },
-            commits: [{
-              id: (githubResult as any).commit?.sha || 'unknown',
-              message: `Update blog post: ${slug}`,
-              timestamp: new Date().toISOString(),
-            }],
-          }),
-        })
-        
-        if (webhookResponse.ok) {
-          console.log('✅ Vercel redeployment triggered successfully')
-        } else {
-          console.warn('⚠️ Vercel webhook call failed:', webhookResponse.status)
-        }
-      } catch (webhookError) {
-        console.error('Vercel webhook error:', webhookError)
-        // Don't fail the save operation if webhook fails
-      }
+    // Vercel auto-deployment is enabled, so no need for webhook
+    // GitHub commits will automatically trigger Vercel rebuilds
+    if (githubResult) {
+      console.log('✅ GitHub commit successful - Vercel will auto-deploy')
     }
 
     return NextResponse.json({ 
@@ -241,8 +211,8 @@ export async function POST(request: Request) {
       images: imageProcessingResult,
       message: githubResult 
         ? imageProcessingResult && imageProcessingResult.processed && imageProcessingResult.processed.length > 0
-          ? `Blog post committed to GitHub successfully! ${imageProcessingResult.processed.length} images processed and committed. Vercel redeployment triggered.`
-          : 'Blog post committed to GitHub successfully! Vercel redeployment triggered.'
+          ? `Blog post committed to GitHub successfully! ${imageProcessingResult.processed.length} images processed and committed. Vercel will auto-deploy.`
+          : 'Blog post committed to GitHub successfully! Vercel will auto-deploy.'
         : localWriteSuccess 
           ? 'Blog post saved locally (GitHub not configured)' 
           : 'Blog post saved'

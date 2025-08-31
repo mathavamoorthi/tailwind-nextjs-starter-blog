@@ -14,6 +14,7 @@ This is a [Next.js](https://nextjs.org/), [Tailwind CSS](https://tailwindcss.com
 
 ## ✨ New Features in This Fork
 
+
 - **🚀 Incremental Static Regeneration (ISR)** - Runtime blog updates without rebuilding
 - **✏️ Built-in Editor** - Create and edit posts directly from the browser
 - **🔄 Automatic Revalidation** - Content updates trigger page revalidation

@@ -424,7 +424,7 @@ Consider removing the following features that cannot be used in a static build:
 1. Comment out `headers()` from `next.config.js`.
 2. Remove `api` folder and components which call the server-side function such as the Newsletter component. Not technically required and the site will build successfully, but the APIs cannot be used as they are server-side functions.
 
-## Frequently Asked Questions
+## Frequently Askedd Questions
 
 - [How can I add a custom MDX component?](/faq/custom-mdx-component.md)
 - [How can I customize the `kbar` search?](/faq/customize-kbar-search.md)

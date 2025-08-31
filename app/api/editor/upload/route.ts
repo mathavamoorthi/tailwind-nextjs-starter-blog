@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
-import path from 'path'
-import { mkdir, writeFile, access, readdir, unlink } from 'fs/promises'
+import { put } from '@vercel/blob'
 import { GitHubAPI } from '../../../../lib/github'
 
 function isValidSlug(slug: string) {
@@ -29,43 +28,37 @@ export async function POST(request: Request) {
     const timestamp = Date.now()
     const filename = `${timestamp}-${safeName}`
 
-    // Stage 1: Store image in /tmp for immediate preview
     try {
-      const baseDir = process.env.VERCEL ? '/tmp' : process.cwd()
-      const dir = path.join(baseDir, 'public', 'static', 'images', slug)
+      // Upload to Vercel Blob Storage
+      console.log(`🚀 Uploading image to Vercel Blob: ${filename}`)
       
-      try {
-        await access(dir)
-      } catch {
-        await mkdir(dir, { recursive: true })
-      }
-
-      const filePath = path.join(dir, filename)
-      await writeFile(filePath, buffer)
+      const blob = await put(filename, buffer, {
+        access: 'public',
+        addRandomSuffix: false,
+      })
       
-      console.log('Successfully stored image in temp for preview:', filePath)
+      console.log(`✅ Image uploaded to Vercel Blob successfully: ${blob.url}`)
       
-      // Return temporary URL for immediate preview
-      const publicUrl = process.env.VERCEL 
-        ? `/api/editor/image/${slug}/${filename}` // Temporary API endpoint
-        : `/static/images/${slug}/${filename}` // Local development
-      
+      // Return the blob URL for immediate preview
       return NextResponse.json({ 
         ok: true, 
-        url: publicUrl, 
+        url: blob.url, // This will be the CDN URL for preview
         filename,
-        tempPath: filePath,
-        message: '✅ Image uploaded for preview (will be committed to GitHub when you save the post)'
+        blobUrl: blob.url,
+        blobPathname: blob.pathname,
+        message: '✅ Image uploaded to Vercel Blob! It will be committed to GitHub when you publish the post.'
       })
-    } catch (localError) {
-      console.error('Local upload error:', localError)
+      
+    } catch (blobError) {
+      console.error('Vercel Blob upload error:', blobError)
       return NextResponse.json({ 
-        error: 'Failed to upload image for preview.',
-        details: process.env.VERCEL ? 'Running on Vercel with read-only filesystem' : 'Local filesystem write failed'
+        error: 'Failed to upload image to Vercel Blob',
+        details: blobError instanceof Error ? blobError.message : 'Unknown error'
       }, { status: 500 })
     }
+    
   } catch (e) {
-    console.error(e)
+    console.error('Upload error:', e)
     return NextResponse.json({ error: 'upload failed' }, { status: 500 })
   }
 }

@@ -229,17 +229,19 @@ export default function MDXEditorPage() {
       const data = await res.json().catch(() => ({}))
       throw new Error(data?.error || 'Upload failed')
     }
-    const data = await res.json() as { url: string; message?: string; local?: boolean; github?: { committed: boolean; sha: string }; filename?: string }
+    const data = await res.json() as { 
+      url: string; 
+      message?: string; 
+      blobUrl?: string;
+      filename?: string 
+    }
     
     // Show upload status message
     if (data.message) {
       setMessage(data.message)
     }
     
-    // Show preview status
-    setMessage('✅ Image uploaded for preview (will be committed to GitHub when you save the post)')
-    
-    return data.url
+    return data.url // This will be the Vercel Blob CDN URL
   }
 
   function insertAtCursor(text: string) {
@@ -289,6 +291,18 @@ export default function MDXEditorPage() {
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
       <h1 className="mb-6 text-3xl font-bold">New MDX Post</h1>
+      
+      {/* Workflow Explanation */}
+      <div className="mb-6 rounded-lg bg-blue-50 border border-blue-200 p-4 dark:bg-blue-900 dark:border-blue-700">
+        <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-200 mb-2">🚀 Vercel Blob Image Workflow</h3>
+        <div className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
+          <p>• <strong>Images are uploaded to Vercel Blob Storage</strong> for immediate preview</p>
+          <p>• <strong>CDN URLs are inserted</strong> into MDX for instant rendering</p>
+          <p>• <strong>When you publish</strong>, images are downloaded and committed to GitHub</p>
+          <p>• <strong>MDX URLs are updated</strong> to use local paths for production</p>
+          <p>• <strong>Vercel automatically redeploys</strong> with the final images</p>
+        </div>
+      </div>
       
       {/* GitHub Status */}
       {githubStatus && (

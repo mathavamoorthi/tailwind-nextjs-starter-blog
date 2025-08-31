@@ -1,0 +1,130 @@
+import { NextResponse } from 'next/server'
+import { GitHubAPI } from '../../../../lib/github'
+
+interface ProcessRequest {
+  mdxContent: string
+  slug: string
+}
+
+interface ImageInfo {
+  blobUrl: string
+  filename: string
+  localPath: string
+}
+
+export async function POST(request: Request) {
+  try {
+    const { mdxContent, slug }: ProcessRequest = await request.json()
+
+    if (!mdxContent || !slug) {
+      return NextResponse.json({ 
+        error: 'mdxContent and slug are required' 
+      }, { status: 400 })
+    }
+
+    // Check if GitHub is configured
+    if (!process.env.GITHUB_TOKEN || !process.env.GITHUB_OWNER || !process.env.GITHUB_REPO) {
+      return NextResponse.json({ 
+        error: 'GitHub not configured. Please set GITHUB_TOKEN, GITHUB_OWNER, and GITHUB_REPO environment variables.',
+        details: 'Images must be committed to GitHub to work in production'
+      }, { status: 500 })
+    }
+
+    // Extract all image URLs from the MDX content
+    const imageRegex = /!\[([^\]]*)\]\(([^)]+)\)/g
+    const images: ImageInfo[] = []
+    let match
+
+    while ((match = imageRegex.exec(mdxContent)) !== null) {
+      const [, alt, url] = match
+      
+      // Check if this is a Vercel Blob URL
+      if (url.includes('blob.vercel-storage.com') || url.includes('vercel-storage.com')) {
+        const filename = url.split('/').pop() || `image-${Date.now()}.png`
+        const localPath = `public/static/images/${slug}/${filename}`
+        
+        images.push({
+          blobUrl: url,
+          filename,
+          localPath
+        })
+      }
+    }
+
+    if (images.length === 0) {
+      return NextResponse.json({ 
+        message: 'No Vercel Blob images found in MDX content',
+        processedContent: mdxContent,
+        images: []
+      })
+    }
+
+    console.log(`🔍 Found ${images.length} Vercel Blob images to process`)
+
+    // Create GitHub API instance
+    const github = new GitHubAPI(
+      process.env.GITHUB_TOKEN,
+      process.env.GITHUB_OWNER,
+      process.env.GITHUB_REPO
+    )
+
+    let processedContent = mdxContent
+    const processedImages: string[] = []
+    const failedImages: string[] = []
+
+    // Process each image
+    for (const image of images) {
+      try {
+        console.log(`📥 Downloading image from Blob: ${image.filename}`)
+        
+        // Download image from Blob URL
+        const response = await fetch(image.blobUrl)
+        if (!response.ok) {
+          throw new Error(`Failed to download image: ${response.status}`)
+        }
+        
+        const imageBuffer = await response.arrayBuffer()
+        const base64Content = Buffer.from(imageBuffer).toString('base64')
+        
+        // Commit image to GitHub
+        const commitMessage = `Add image for blog post: ${slug} - ${image.filename}`
+        
+        await github.createOrUpdateFile(
+          image.localPath,
+          base64Content,
+          commitMessage
+        )
+        
+        console.log(`✅ Image committed to GitHub: ${image.localPath}`)
+        
+        // Replace Blob URL with local path in MDX content
+        const localUrl = `/static/images/${slug}/${image.filename}`
+        processedContent = processedContent.replace(image.blobUrl, localUrl)
+        
+        processedImages.push(image.filename)
+        
+      } catch (error) {
+        console.error(`❌ Failed to process image ${image.filename}:`, error)
+        failedImages.push(image.filename)
+      }
+    }
+
+    return NextResponse.json({ 
+      ok: true,
+      message: `Processed ${processedImages.length} images successfully`,
+      processedContent,
+      images: {
+        processed: processedImages,
+        failed: failedImages,
+        total: images.length
+      }
+    })
+
+  } catch (error) {
+    console.error('Process blob images error:', error)
+    return NextResponse.json({ 
+      error: 'Failed to process blob images',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 })
+  }
+}

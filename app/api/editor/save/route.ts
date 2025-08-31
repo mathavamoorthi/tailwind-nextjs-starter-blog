@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
+import { writeFile, mkdir, access } from 'fs/promises'
 import path from 'path'
-import { mkdir, writeFile, access, readdir, readFile, unlink } from 'fs/promises'
-import { revalidatePath } from 'next/cache'
 import { GitHubAPI } from '../../../../lib/github'
+import { revalidatePath } from 'next/cache'
 
 type RequestBody = {
   frontmatter: Record<string, unknown>
@@ -92,6 +92,40 @@ export async function POST(request: Request) {
     const fmText = serializeFrontmatter(fm)
     const content = `${fmText}\n\n${mdxBody || ''}\n`
 
+    // Process Vercel Blob images before saving
+    let processedContent = content
+    let imageProcessingResult: any = null
+    
+    try {
+      // Check if there are any Vercel Blob URLs in the content
+      if (content.includes('blob.vercel-storage.com') || content.includes('vercel-storage.com')) {
+        console.log('🔄 Processing Vercel Blob images...')
+        
+        const processResponse = await fetch(`${process.env.VERCEL_URL || 'http://localhost:3000'}/api/editor/process-blob-images`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            mdxContent: content,
+            slug: slug
+          }),
+        })
+        
+        if (processResponse.ok) {
+          const processData = await processResponse.json()
+          processedContent = processData.processedContent
+          imageProcessingResult = processData.images
+          console.log(`✅ Processed ${processData.images.processed.length} images successfully`)
+        } else {
+          console.warn('⚠️ Failed to process blob images, continuing with original content')
+        }
+      }
+    } catch (processError) {
+      console.error('Image processing error:', processError)
+      // Continue with original content if processing fails
+    }
+
     // In production (Vercel), we can't write to the filesystem
     // So we only write to GitHub and rely on the build process
     let githubResult = null
@@ -109,7 +143,7 @@ export async function POST(request: Request) {
         const commitMessage = `Add/Update blog post: ${frontmatter.title}`
         githubResult = await github.createOrUpdateFile(
           `data/blog/${filename}`,
-          content,
+          processedContent, // Use processedContent for GitHub
           commitMessage
         )
         
@@ -136,7 +170,7 @@ export async function POST(request: Request) {
         }
 
         const filePath = path.join(dir, filename)
-        await writeFile(filePath, content, 'utf-8')
+        await writeFile(filePath, processedContent, 'utf-8') // Use processedContent for local write
         localWriteSuccess = true
         console.log('Successfully wrote locally:', filePath)
       } catch (localError) {
@@ -163,83 +197,39 @@ export async function POST(request: Request) {
       console.error('Revalidation error:', error)
     }
 
-    // Commit any temporary images to GitHub
-    let imageCommitResult: any = null
-    if (process.env.GITHUB_TOKEN && process.env.GITHUB_OWNER && process.env.GITHUB_REPO) {
+    // Trigger Vercel redeployment to make images visible
+    if (process.env.VERCEL_DEPLOY_HOOK && githubResult) {
       try {
-        // Create a new GitHub API instance for image commits
-        const github = new GitHubAPI(
-          process.env.GITHUB_TOKEN,
-          process.env.GITHUB_OWNER,
-          process.env.GITHUB_REPO
-        )
+        const webhookUrl = process.env.VERCEL_DEPLOY_HOOK
+        console.log('🚀 Triggering Vercel redeployment via webhook...')
         
-        // Directly commit images instead of making API call
-        const baseDir = process.env.VERCEL ? '/tmp' : process.cwd()
-        const tempImageDir = path.join(baseDir, 'public', 'static', 'images', slug)
+        const webhookResponse = await fetch(webhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            ref: 'main',
+            repository: {
+              name: process.env.GITHUB_REPO,
+              owner: process.env.GITHUB_OWNER,
+            },
+            commits: [{
+              id: (githubResult as any).commit?.sha || 'unknown',
+              message: `Update blog post: ${slug}`,
+              timestamp: new Date().toISOString(),
+            }],
+          }),
+        })
         
-        let committedImages: string[] = []
-        let failedImages: string[] = []
-        
-        try {
-          // Check if temp directory exists
-          await access(tempImageDir)
-          
-          // Read all files in the temp directory
-          const files = await readdir(tempImageDir)
-          
-          // Filter for image files
-          const imageFiles = files.filter(file => 
-            /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(file)
-          )
-
-          if (imageFiles.length > 0) {
-            // Commit each image to GitHub
-            for (const filename of imageFiles) {
-              try {
-                const imagePath = path.join(tempImageDir, filename)
-                const imageBuffer = await readFile(imagePath)
-                const base64Content = imageBuffer.toString('base64')
-                
-                const commitMessage = `Add image for blog post: ${slug} - ${filename}`
-                
-                await github.createOrUpdateFile(
-                  `public/static/images/${slug}/${filename}`,
-                  base64Content,
-                  commitMessage
-                )
-                
-                committedImages.push(filename)
-                console.log(`Successfully committed image to GitHub: ${filename}`)
-                
-                // Clean up temp file after successful commit
-                try {
-                  await unlink(imagePath)
-                  console.log(`Cleaned up temp file: ${imagePath}`)
-                } catch (cleanupError) {
-                  console.warn(`Failed to clean up temp file: ${imagePath}`, cleanupError)
-                }
-                
-              } catch (error) {
-                console.error(`Failed to commit image ${filename}:`, error)
-                failedImages.push(filename)
-              }
-            }
-            
-            imageCommitResult = {
-              message: `Committed ${committedImages.length} images to GitHub`,
-              committed: committedImages,
-              failed: failedImages,
-              total: imageFiles.length
-            }
-          }
-        } catch (error) {
-          console.error('Error accessing temp image directory:', error)
-          // No images to commit
+        if (webhookResponse.ok) {
+          console.log('✅ Vercel redeployment triggered successfully')
+        } else {
+          console.warn('⚠️ Vercel webhook call failed:', webhookResponse.status)
         }
-      } catch (error) {
-        console.error('Image commit error:', error)
-        // Don't fail the save operation if image commit fails
+      } catch (webhookError) {
+        console.error('Vercel webhook error:', webhookError)
+        // Don't fail the save operation if webhook fails
       }
     }
 
@@ -248,11 +238,11 @@ export async function POST(request: Request) {
       path: `data/blog/${filename}`,
       github: githubResult ? { committed: true, sha: (githubResult as any).commit?.sha } : null,
       local: localWriteSuccess,
-      images: imageCommitResult,
+      images: imageProcessingResult,
       message: githubResult 
-        ? (imageCommitResult && typeof imageCommitResult === 'object' && 'committed' in imageCommitResult && Array.isArray((imageCommitResult as any).committed) && (imageCommitResult as any).committed.length > 0
-            ? `Blog post and ${(imageCommitResult as any).committed.length} images committed to GitHub successfully`
-            : 'Blog post committed to GitHub successfully')
+        ? imageProcessingResult && imageProcessingResult.processed && imageProcessingResult.processed.length > 0
+          ? `Blog post committed to GitHub successfully! ${imageProcessingResult.processed.length} images processed and committed. Vercel redeployment triggered.`
+          : 'Blog post committed to GitHub successfully! Vercel redeployment triggered.'
         : localWriteSuccess 
           ? 'Blog post saved locally (GitHub not configured)' 
           : 'Blog post saved'
@@ -262,5 +252,3 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unexpected error' }, { status: 500 })
   }
 }
-
-

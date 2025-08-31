@@ -132,6 +132,12 @@ export async function POST(request: Request) {
             console.log('✅ All Blob URLs successfully replaced - images will use local paths in production')
           }
         } else {
+          const errorText = await processResponse.text()
+          console.error('❌ Process blob images failed:', {
+            status: processResponse.status,
+            statusText: processResponse.statusText,
+            error: errorText
+          })
           console.warn('⚠️ Failed to process blob images, continuing with original content')
         }
       }

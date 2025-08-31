@@ -90,12 +90,12 @@ export class GitHubAPI {
       const existingFile = await this.request(`/contents/${path}?ref=${branch}`)
       const sha = existingFile.sha
 
-      // Update existing file
+      // Update existing file - content is already base64
       return this.request(`/contents/${path}`, {
         method: 'PUT',
         body: JSON.stringify({
           message,
-          content: Buffer.from(content).toString('base64'),
+          content: content, // Already base64 encoded
           sha,
           branch,
         }),
@@ -107,7 +107,7 @@ export class GitHubAPI {
           method: 'PUT',
           body: JSON.stringify({
             message,
-            content: Buffer.from(content).toString('base64'),
+            content: content, // Already base64 encoded
             branch,
           }),
         })

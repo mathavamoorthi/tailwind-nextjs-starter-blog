@@ -62,6 +62,12 @@ export async function POST(request: Request) {
     console.log(`🔍 Found ${images.length} Vercel Blob images to process`)
 
     // Create GitHub API instance
+    console.log('🔧 GitHub Configuration:', {
+      token: process.env.GITHUB_TOKEN ? '✅ Set' : '❌ Missing',
+      owner: process.env.GITHUB_OWNER || '❌ Missing',
+      repo: process.env.GITHUB_REPO || '❌ Missing'
+    })
+    
     const github = new GitHubAPI(
       process.env.GITHUB_TOKEN,
       process.env.GITHUB_OWNER,
@@ -78,9 +84,12 @@ export async function POST(request: Request) {
         console.log(`📥 Downloading image from Blob: ${image.filename}`)
         
         // Download image from Blob URL
+        console.log(`📥 Attempting to download: ${image.blobUrl}`)
         const response = await fetch(image.blobUrl)
+        console.log(`📥 Download response: ${response.status} ${response.statusText}`)
+        
         if (!response.ok) {
-          throw new Error(`Failed to download image: ${response.status}`)
+          throw new Error(`Failed to download image: ${response.status} ${response.statusText}`)
         }
         
         const imageBuffer = await response.arrayBuffer()
@@ -89,6 +98,7 @@ export async function POST(request: Request) {
         // Commit image to GitHub
         const commitMessage = `Add image for blog post: ${slug} - ${image.filename}`
         
+        console.log(`📤 Committing image to GitHub: ${image.localPath}`)
         await github.createOrUpdateFile(
           image.localPath,
           base64Content,
@@ -140,7 +150,8 @@ export async function POST(request: Request) {
     console.error('Process blob images error:', error)
     return NextResponse.json({ 
       error: 'Failed to process blob images',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
     }, { status: 500 })
   }
 }

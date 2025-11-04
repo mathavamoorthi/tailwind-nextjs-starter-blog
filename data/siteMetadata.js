@@ -19,7 +19,7 @@ const siteMetadata = {
   youtube: 'https://youtube.com',
   linkedin: 'https://www.linkedin.com',
   threads: 'https://www.threads.net',
-  instagram: 'https://www.instagram.com',
+  instagram: 'https://www.instagram.com/n0va.in',
   medium: 'https://medium.com',
   bluesky: 'https://bsky.app/',
   locale: 'en-US',

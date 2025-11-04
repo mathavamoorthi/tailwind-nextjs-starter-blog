@@ -1,7 +1,7 @@
 ![tailwind-nextjs-banner](/public/static/images/twitter-card.png)
 
 # Tailwind Nextjs Starter Blog sample
-##I am Prathiba
+## ~~I am Prathiba~~ thambi mokka joke uh 
 # Tailwind Nextjs Starter Blog test
 tt
 [![GitHub Repo stars](https://img.shields.io/github/stars/timlrx/tailwind-nextjs-starter-blog?style=social)](https://GitHub.com/timlrx/tailwind-nextjs-starter-blog/stargazers/)

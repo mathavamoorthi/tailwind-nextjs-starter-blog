@@ -14,7 +14,7 @@ tt
 This is a [Next.js](https://nextjs.org/), [Tailwind CSS](https://tailwindcss.com/) blogging starter template. Version 2 is based on Next App directory with [React Server Component](https://nextjs.org/docs/getting-started/react-essentials#server-components) and uses [Contentlayer](https://www.contentlayer.dev/) to manage markdown content.
 
 ## ✨ New Features in This Fork
-.
+.test
 
 - **🚀 Incremental Static Regeneration (ISR)** - Runtime blog updates without rebuilding
 - **✏️ Built-in Editor** - Create and edit posts directly from the browser

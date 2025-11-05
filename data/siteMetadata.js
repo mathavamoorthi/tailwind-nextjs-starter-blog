@@ -20,6 +20,7 @@ const siteMetadata = {
   linkedin: 'https://www.linkedin.com/company/team-n0va',
   threads: 'https://www.threads.net',
   instagram: 'https://www.instagram.com/n0va.in',
+  hackthebox: 'https://app.hackthebox.com/teams/overview/5351',
   medium: 'https://medium.com',
   bluesky: 'https://bsky.app/',
   locale: 'en-US',

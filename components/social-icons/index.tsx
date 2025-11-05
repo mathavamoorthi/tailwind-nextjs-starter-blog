@@ -10,6 +10,7 @@ import {
   Threads,
   Instagram,
   HackTheBox,
+  CTFtime,
   Medium,
   Bluesky,
 } from './icons'
@@ -26,6 +27,7 @@ const components = {
   threads: Threads,
   instagram: Instagram,
   hackthebox: HackTheBox,
+  CTFtime: CTFtime,
   medium: Medium,
   bluesky: Bluesky,
 }

@@ -21,6 +21,7 @@ const siteMetadata = {
   threads: 'https://www.threads.net',
   instagram: 'https://www.instagram.com/n0va.in',
   hackthebox: 'https://app.hackthebox.com/teams/overview/5351',
+  CTFtime: 'https://ctftime.org/team/48032',
   medium: 'https://medium.com',
   bluesky: 'https://bsky.app/',
   locale: 'en-US',

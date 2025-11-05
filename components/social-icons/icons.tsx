@@ -105,6 +105,17 @@ export function HackTheBox(props: { className?: string }) {
     />
   )
 }
+export function CTFtime(props: { className?: string }) {
+  const cls = `${props.className || ''} rounded-lg object-cover`
+
+  return (
+    <img
+      src={`${process.env.BASE_PATH || ''}/static/images/ctfdlogo.png`}
+      alt="CTFtime"
+      className={cls}
+    />
+  )
+}
 
 export function Medium(svgProps: SVGProps<SVGSVGElement>) {
   return (

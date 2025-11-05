@@ -1,39 +1,19 @@
-import {
-  Mail,
-  Github,
-  Facebook,
-  Youtube,
-  Linkedin,
-  Twitter,
-  X,
-  Mastodon,
-  Threads,
-  Instagram,
-  HackTheBox,
-  CTFtime,
-  Medium,
-  Bluesky,
-} from './icons'
+// --- replace the existing components + SocialIcon block with this ---
+
+import { Linkedin, Instagram, HackTheBox, CtfTime } from './icons'
 
 const components = {
-  mail: Mail,
-  github: Github,
-  facebook: Facebook,
-  youtube: Youtube,
   linkedin: Linkedin,
-  twitter: Twitter,
-  x: X,
-  mastodon: Mastodon,
-  threads: Threads,
   instagram: Instagram,
   hackthebox: HackTheBox,
-  CTFtime: CTFtime,
-  medium: Medium,
-  bluesky: Bluesky,
-}
+  ctftime: CtfTime,
+} as const
+
+type KnownKind = keyof typeof components
 
 type SocialIconProps = {
-  kind: keyof typeof components
+  // accept either a known kind or any string (we'll handle unknown/case-insensitive)
+  kind: KnownKind | string
   href: string | undefined
   size?: number
 }
@@ -41,11 +21,25 @@ type SocialIconProps = {
 const SocialIcon = ({ kind, href, size = 8 }: SocialIconProps) => {
   if (
     !href ||
-    (kind === 'mail' && !/^mailto:[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(href))
-  )
+    (String(kind).toLowerCase() === 'mail' &&
+      !/^mailto:[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(href))
+  ) {
     return null
+  }
 
-  const SocialSvg = components[kind]
+  // make lookup case-insensitive: allow "CTFtime", "Ctftime", "ctftime", etc.
+  const lookupKey = (typeof kind === 'string' ? kind.toLowerCase() : String(kind)) as KnownKind
+
+  const SocialSvg = components[lookupKey]
+
+  if (!SocialSvg) {
+    // helpful runtime warning (you saw this message earlier)
+    // keep returning null instead of crashing the whole app
+    console.warn(
+      `[SocialIcon] Unknown kind "${kind}". Make sure it’s exported in components/social-icons/icons.tsx and imported here.`
+    )
+    return null
+  }
 
   return (
     <a

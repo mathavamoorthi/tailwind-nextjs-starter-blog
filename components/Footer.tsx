@@ -17,7 +17,7 @@ export default function Footer() {
           <SocialIcon kind="x" href={siteMetadata.x} size={6} />
           <SocialIcon kind="instagram" href={siteMetadata.instagram} size={6} />
           <SocialIcon kind="hackthebox" href={siteMetadata.hackthebox} size={6} />
-          <SocialIcon kind="CTFtime" href={siteMetadata.ctftime} size={6} />
+          <SocialIcon kind="ctftime" href={siteMetadata.ctftime} size={6} />
           <SocialIcon kind="threads" href={siteMetadata.threads} size={6} />
           <SocialIcon kind="medium" href={siteMetadata.medium} size={6} />
         </div>

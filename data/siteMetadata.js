@@ -17,7 +17,7 @@ const siteMetadata = {
   // twitter: 'https://twitter.com/Twitter',
   facebook: 'https://facebook.com',
   youtube: 'https://youtube.com',
-  linkedin: 'https://www.linkedin.com',
+  linkedin: 'https://www.linkedin.com/company/team-n0va',
   threads: 'https://www.threads.net',
   instagram: 'https://www.instagram.com/n0va.in',
   medium: 'https://medium.com',

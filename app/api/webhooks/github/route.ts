@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
 
     // Only revalidate on push to main branch
     if (payload.ref === 'refs/heads/main' && payload.commits) {
-      const changedFiles = payload.commits.flatMap((commit: any) => [
+      const changedFiles = payload.commits.flatMap((commit: unknown) => [
         ...(commit.added || []),
         ...(commit.modified || []),
         ...(commit.removed || []),

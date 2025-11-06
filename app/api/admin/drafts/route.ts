@@ -23,6 +23,16 @@ function isAdmin(request: Request): boolean {
   return false
 }
 
+type ParsedFrontmatter = {
+  title?: string
+  authors?: string[] | string
+  status?: string
+  createdAt?: string
+  updatedAt?: string
+  feedback?: string
+  [key: string]: unknown
+}
+
 export async function GET(request: Request) {
   try {
     // Check admin authentication
@@ -57,18 +67,29 @@ export async function GET(request: Request) {
           try {
             const full = path.join(draftsDir, f)
             const raw = await readFile(full, 'utf-8')
-            const { data, content } = matter(raw)
+            const parsed = matter(raw)
+            const data = parsed.data as ParsedFrontmatter
+            const content = parsed.content || ''
 
-            const title = (data?.title as string) || f.replace(/\.mdx$/, '')
-            const authors = Array.isArray((data as any)?.authors)
-              ? ((data as any).authors as unknown[]).map(String)
-              : typeof (data as any)?.authors === 'string' && String((data as any).authors)
-                ? [String((data as any).authors)]
-                : []
-            const status = (data?.status as string) || 'draft'
-            const createdAt = (data?.createdAt as string) || new Date().toISOString()
-            const updatedAt = (data?.updatedAt as string) || createdAt
-            const feedback = (data?.feedback as string) || ''
+            // title
+            const title =
+              typeof data.title === 'string' && data.title.trim()
+                ? data.title
+                : f.replace(/\.mdx$/, '')
+
+            // authors: string[] normalized
+            let authors: string[] = []
+            if (Array.isArray(data.authors)) {
+              authors = data.authors.map((a) => String(a))
+            } else if (typeof data.authors === 'string' && data.authors.trim()) {
+              authors = [data.authors.trim()]
+            }
+
+            const status = typeof data.status === 'string' ? data.status : 'draft'
+            const createdAt =
+              typeof data.createdAt === 'string' ? data.createdAt : new Date().toISOString()
+            const updatedAt = typeof data.updatedAt === 'string' ? data.updatedAt : createdAt
+            const feedback = typeof data.feedback === 'string' ? data.feedback : ''
 
             // Check if this slug already exists in published posts
             const slug = f.replace(/\.mdx$/, '')
@@ -92,7 +113,8 @@ export async function GET(request: Request) {
         })
     )
 
-    const validDrafts = drafts.filter((d) => d !== null)
+    // Type guard to narrow out nulls
+    const validDrafts = drafts.filter((d): d is NonNullable<typeof d> => d !== null)
 
     return NextResponse.json({
       drafts: validDrafts,

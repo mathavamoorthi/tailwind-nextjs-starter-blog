@@ -9,6 +9,12 @@ function getRequestAuthor(request: Request): string | null {
   return header.trim()
 }
 
+type ParsedFrontmatter = {
+  title?: string
+  authors?: string[] | string
+  [key: string]: unknown
+}
+
 export async function GET(request: Request) {
   try {
     const dir = path.join(process.cwd(), 'data', 'blog')
@@ -20,13 +26,21 @@ export async function GET(request: Request) {
           try {
             const full = path.join(dir, f)
             const raw = await readFile(full, 'utf-8')
-            const { data } = matter(raw)
-            const title = (data?.title as string) || f.replace(/\.mdx$/, '')
-            const authors = Array.isArray((data as any)?.authors)
-              ? ((data as any).authors as unknown[]).map(String)
-              : typeof (data as any)?.authors === 'string' && String((data as any).authors)
-                ? [String((data as any).authors)]
-                : []
+            const parsed = matter(raw)
+            const data = parsed.data as ParsedFrontmatter
+
+            const title =
+              typeof data.title === 'string' && data.title.trim()
+                ? data.title
+                : f.replace(/\.mdx$/, '')
+
+            let authors: string[] = []
+            if (Array.isArray(data.authors)) {
+              authors = data.authors.map((a) => String(a))
+            } else if (typeof data.authors === 'string' && data.authors.trim()) {
+              authors = [data.authors.trim()]
+            }
+
             return { title, slug: f.replace(/\.mdx$/, ''), authors }
           } catch {
             return { title: f.replace(/\.mdx$/, ''), slug: f.replace(/\.mdx$/, ''), authors: [] }

@@ -10,6 +10,12 @@ type RequestBody = {
   slug: string
 }
 
+type ImageProcessResult = {
+  processed: string[]
+  failed: string[]
+  total: number
+} | null
+
 function toArrayOrUndefined(value: unknown): string[] | undefined {
   if (value === undefined || value === null) return undefined
   if (Array.isArray(value)) return value.map(String)
@@ -49,15 +55,17 @@ function serializeFrontmatter(obj: Record<string, unknown>) {
   const lines: string[] = ['---']
   for (const [key, value] of Object.entries(obj)) {
     if (Array.isArray(value)) {
-      const arr = (value as unknown[]).map((v) => JSON.stringify(v)).join(', ')
+      const arr = (value as unknown[]).map((v) => JSON.stringify(String(v))).join(', ')
       lines.push(`${key}: [${arr}]`)
     } else if (typeof value === 'object' && value !== null) {
       lines.push(`${key}: ${JSON.stringify(value)}`)
-    } else if (typeof value === 'string') {
-      const needsQuote = /[:#>-]/.test(value)
-      lines.push(`${key}: ${needsQuote ? JSON.stringify(value) : value}`)
     } else {
-      lines.push(`${key}: ${String(value)}`)
+      // Always JSON.stringify strings for safety (avoids YAML pitfalls)
+      if (typeof value === 'string') {
+        lines.push(`${key}: ${JSON.stringify(value)}`)
+      } else {
+        lines.push(`${key}: ${String(value)}`)
+      }
     }
   }
   lines.push('---')
@@ -68,6 +76,18 @@ function getRequestAuthor(request: Request): string | null {
   const header = request.headers.get('x-editor-author')
   if (!header) return null
   return header.trim()
+}
+
+// Helper: fetch with timeout
+async function fetchWithTimeout(url: string, timeoutMs = 15000) {
+  const controller = new AbortController()
+  const id = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    const res = await fetch(url, { signal: controller.signal })
+    return res
+  } finally {
+    clearTimeout(id)
+  }
 }
 
 export async function POST(request: Request) {
@@ -90,9 +110,11 @@ export async function POST(request: Request) {
       fm.authors = [actorAuthor]
     }
 
-    // Add draft status and timestamps
+    // Add draft status and timestamps; preserve createdAt if present
     fm.status = 'draft'
-    fm.createdAt = new Date().toISOString()
+    if (!fm.createdAt) {
+      fm.createdAt = new Date().toISOString()
+    }
     fm.updatedAt = new Date().toISOString()
 
     const fmText = serializeFrontmatter(fm)
@@ -100,7 +122,7 @@ export async function POST(request: Request) {
 
     // Process Vercel Blob images before saving
     let processedContent = content
-    let imageProcessingResult: any = null
+    let imageProcessingResult: ImageProcessResult = null
 
     try {
       // Check if there are any Vercel Blob URLs in the content
@@ -114,19 +136,19 @@ export async function POST(request: Request) {
           // Extract all image URLs from the MDX content
           const imageRegex = /!\[([^\]]*)\]\(([^)]+)\)/g
           const images: Array<{ blobUrl: string; filename: string; localPath: string }> = []
-          let match
+          let match: RegExpExecArray | null
 
           while ((match = imageRegex.exec(content)) !== null) {
-            const [, alt, url] = match
+            const [, , url] = match
 
             // Check if this is a Vercel Blob URL
             if (url.includes('blob.vercel-storage.com') || url.includes('vercel-storage.com')) {
-              const filename = url.split('/').pop() || `image-${Date.now()}.png`
-              const localPath = `public/static/images/${slug}/${filename}`
+              const filenamePart = url.split('/').pop() || `image-${Date.now()}.png`
+              const localPath = `public/static/images/${slug}/${filenamePart}`
 
               images.push({
                 blobUrl: url,
-                filename,
+                filename: filenamePart,
                 localPath,
               })
             }
@@ -150,8 +172,8 @@ export async function POST(request: Request) {
               try {
                 console.log(`📥 Processing image: ${image.filename}`)
 
-                // Download image from Blob URL
-                const response = await fetch(image.blobUrl)
+                // Download image from Blob URL with timeout
+                const response = await fetchWithTimeout(image.blobUrl, 15000)
 
                 if (!response.ok) {
                   throw new Error(
@@ -164,7 +186,7 @@ export async function POST(request: Request) {
 
                 console.log(`📊 Image size: ${imageBuffer.byteLength} bytes`)
 
-                // Commit image to GitHub
+                // Commit image to GitHub (ensure your GitHubAPI expects base64; check lib/github)
                 const commitMessage = `Add image for blog post: ${slug} - ${image.filename}`
 
                 await github.createOrUpdateFile(image.localPath, base64Content, commitMessage)
@@ -173,7 +195,7 @@ export async function POST(request: Request) {
 
                 // Replace ALL occurrences of this Blob URL with local path in MDX content
                 const localUrl = `/static/images/${slug}/${image.filename}`
-                processedContent = processedContent.replaceAll(image.blobUrl, localUrl)
+                processedContent = processedContent.split(image.blobUrl).join(localUrl)
 
                 console.log(`🔄 Replaced Blob URL with local path: ${localUrl}`)
 
@@ -213,7 +235,7 @@ export async function POST(request: Request) {
 
     // In production (Vercel), we can't write to the filesystem
     // So we only write to GitHub and rely on the build process
-    let githubResult = null
+    let githubResult: unknown = null
     let localWriteSuccess = false
 
     // Try to write to GitHub first (this is the primary method)
@@ -225,9 +247,10 @@ export async function POST(request: Request) {
           process.env.GITHUB_REPO
         )
 
-        const commitMessage = `Add/Update draft post: ${frontmatter.title}`
+        const titleForCommit = typeof frontmatter.title === 'string' ? frontmatter.title : slug
+        const commitMessage = `Add/Update draft post: ${titleForCommit} (${slug})`
 
-        // Encode the MDX content as base64 for GitHub API
+        // Encode the MDX content as base64 for GitHub API (if your helper expects base64)
         const base64Content = Buffer.from(processedContent, 'utf-8').toString('base64')
 
         console.log(`📄 MDX Content length: ${processedContent.length} characters`)
@@ -238,7 +261,7 @@ export async function POST(request: Request) {
 
         githubResult = await github.createOrUpdateFile(
           `data/drafts/${filename}`,
-          base64Content, // Send base64 encoded content
+          base64Content, // confirm your GitHubAPI expects base64
           commitMessage
         )
 
@@ -301,10 +324,29 @@ export async function POST(request: Request) {
       console.log('✅ GitHub commit successful - Vercel will auto-deploy')
     }
 
+    // Extract commit SHA safely if available
+    let commitSha: string | null = null
+
+    try {
+      if (githubResult && typeof githubResult === 'object') {
+        const obj = githubResult as Record<string, unknown>
+        const commitVal = obj['commit']
+        if (commitVal && typeof commitVal === 'object') {
+          const commitObj = commitVal as Record<string, unknown>
+          const shaVal = commitObj['sha']
+          if (typeof shaVal === 'string') {
+            commitSha = shaVal
+          }
+        }
+      }
+    } catch {
+      commitSha = null
+    }
+
     return NextResponse.json({
       ok: true,
       path: `data/drafts/${filename}`,
-      github: githubResult ? { committed: true, sha: (githubResult as any).commit?.sha } : null,
+      github: githubResult ? { committed: true, sha: commitSha } : null,
       local: localWriteSuccess,
       images: imageProcessingResult,
       message: githubResult
@@ -318,7 +360,7 @@ export async function POST(request: Request) {
           : 'Draft saved',
     })
   } catch (e) {
-    console.error(e)
+    console.error('editor/save error:', e)
     return NextResponse.json({ error: 'Unexpected error' }, { status: 500 })
   }
 }

@@ -112,7 +112,7 @@ export class GitHubAPI {
           branch,
         }),
       })
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (error.message.includes('404')) {
         // File doesn't exist, create new one
         return this.request(`/contents/${path}`, {
@@ -143,7 +143,7 @@ export class GitHubAPI {
           branch,
         }),
       })
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (error.message.includes('404')) {
         // File doesn't exist, nothing to delete
         console.log(`File ${path} doesn't exist, nothing to delete`)

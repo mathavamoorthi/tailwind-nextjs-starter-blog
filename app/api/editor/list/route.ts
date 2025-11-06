@@ -24,9 +24,9 @@ export async function GET(request: Request) {
             const title = (data?.title as string) || f.replace(/\.mdx$/, '')
             const authors = Array.isArray((data as any)?.authors)
               ? ((data as any).authors as unknown[]).map(String)
-              : (typeof (data as any)?.authors === 'string' && String((data as any).authors))
-              ? [String((data as any).authors)]
-              : []
+              : typeof (data as any)?.authors === 'string' && String((data as any).authors)
+                ? [String((data as any).authors)]
+                : []
             return { title, slug: f.replace(/\.mdx$/, ''), authors }
           } catch {
             return { title: f.replace(/\.mdx$/, ''), slug: f.replace(/\.mdx$/, ''), authors: [] }
@@ -41,5 +41,3 @@ export async function GET(request: Request) {
     return NextResponse.json({ posts: [] })
   }
 }
-
-

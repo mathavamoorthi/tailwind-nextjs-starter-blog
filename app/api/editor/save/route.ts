@@ -89,45 +89,45 @@ export async function POST(request: Request) {
       // Force authors to be the authenticated author only
       fm.authors = [actorAuthor]
     }
-    
+
     // Add draft status and timestamps
     fm.status = 'draft'
     fm.createdAt = new Date().toISOString()
     fm.updatedAt = new Date().toISOString()
-    
+
     const fmText = serializeFrontmatter(fm)
     const content = `${fmText}\n\n${mdxBody || ''}\n`
 
     // Process Vercel Blob images before saving
     let processedContent = content
     let imageProcessingResult: any = null
-    
+
     try {
       // Check if there are any Vercel Blob URLs in the content
       if (content.includes('blob.vercel-storage.com') || content.includes('vercel-storage.com')) {
         console.log('🔄 Processing Vercel Blob images...')
-        
+
         // Check if GitHub is configured
         if (!process.env.GITHUB_TOKEN || !process.env.GITHUB_OWNER || !process.env.GITHUB_REPO) {
           console.warn('⚠️ GitHub not configured - skipping blob image processing')
         } else {
           // Extract all image URLs from the MDX content
           const imageRegex = /!\[([^\]]*)\]\(([^)]+)\)/g
-          const images: Array<{blobUrl: string, filename: string, localPath: string}> = []
+          const images: Array<{ blobUrl: string; filename: string; localPath: string }> = []
           let match
 
           while ((match = imageRegex.exec(content)) !== null) {
             const [, alt, url] = match
-            
+
             // Check if this is a Vercel Blob URL
             if (url.includes('blob.vercel-storage.com') || url.includes('vercel-storage.com')) {
               const filename = url.split('/').pop() || `image-${Date.now()}.png`
               const localPath = `public/static/images/${slug}/${filename}`
-              
+
               images.push({
                 blobUrl: url,
                 filename,
-                localPath
+                localPath,
               })
             }
           }
@@ -149,48 +149,49 @@ export async function POST(request: Request) {
             for (const image of images) {
               try {
                 console.log(`📥 Processing image: ${image.filename}`)
-                
+
                 // Download image from Blob URL
                 const response = await fetch(image.blobUrl)
-                
+
                 if (!response.ok) {
-                  throw new Error(`Failed to download image: ${response.status} ${response.statusText}`)
+                  throw new Error(
+                    `Failed to download image: ${response.status} ${response.statusText}`
+                  )
                 }
-                
+
                 const imageBuffer = await response.arrayBuffer()
                 const base64Content = Buffer.from(imageBuffer).toString('base64')
-                
+
                 console.log(`📊 Image size: ${imageBuffer.byteLength} bytes`)
-                
+
                 // Commit image to GitHub
                 const commitMessage = `Add image for blog post: ${slug} - ${image.filename}`
-                
-                await github.createOrUpdateFile(
-                  image.localPath,
-                  base64Content,
-                  commitMessage
-                )
-                
+
+                await github.createOrUpdateFile(image.localPath, base64Content, commitMessage)
+
                 console.log(`✅ Image committed to GitHub: ${image.localPath}`)
-                
+
                 // Replace ALL occurrences of this Blob URL with local path in MDX content
                 const localUrl = `/static/images/${slug}/${image.filename}`
                 processedContent = processedContent.replaceAll(image.blobUrl, localUrl)
-                
+
                 console.log(`🔄 Replaced Blob URL with local path: ${localUrl}`)
-                
+
                 processedImages.push(image.filename)
-                
               } catch (error) {
                 console.error(`❌ Failed to process image ${image.filename}:`, error)
                 failedImages.push(image.filename)
               }
             }
-            
+
             // Final verification: ensure no Blob URLs remain
-            const remainingBlobUrls = processedContent.match(/blob\.vercel-storage\.com|vercel-storage\.com/g)
+            const remainingBlobUrls = processedContent.match(
+              /blob\.vercel-storage\.com|vercel-storage\.com/g
+            )
             if (remainingBlobUrls && remainingBlobUrls.length > 0) {
-              console.warn(`⚠️ Warning: ${remainingBlobUrls.length} Blob URLs still remain in processed content`)
+              console.warn(
+                `⚠️ Warning: ${remainingBlobUrls.length} Blob URLs still remain in processed content`
+              )
             } else {
               console.log('✅ All Blob URLs successfully replaced with local paths')
             }
@@ -198,7 +199,7 @@ export async function POST(request: Request) {
             imageProcessingResult = {
               processed: processedImages,
               failed: failedImages,
-              total: images.length
+              total: images.length,
             }
           } else {
             console.log('ℹ️ No Vercel Blob images found in MDX content')
@@ -223,22 +224,24 @@ export async function POST(request: Request) {
           process.env.GITHUB_OWNER,
           process.env.GITHUB_REPO
         )
-        
+
         const commitMessage = `Add/Update draft post: ${frontmatter.title}`
-        
+
         // Encode the MDX content as base64 for GitHub API
         const base64Content = Buffer.from(processedContent, 'utf-8').toString('base64')
-        
+
         console.log(`📄 MDX Content length: ${processedContent.length} characters`)
         console.log(`📄 Base64 Content length: ${base64Content.length} characters`)
-        console.log(`📄 Base64 validation: ${/^[A-Za-z0-9+/]*={0,2}$/.test(base64Content) ? '✅ Valid' : '❌ Invalid'}`)
-        
+        console.log(
+          `📄 Base64 validation: ${/^[A-Za-z0-9+/]*={0,2}$/.test(base64Content) ? '✅ Valid' : '❌ Invalid'}`
+        )
+
         githubResult = await github.createOrUpdateFile(
           `data/drafts/${filename}`,
           base64Content, // Send base64 encoded content
           commitMessage
         )
-        
+
         if (githubResult) {
           console.log('Successfully committed to GitHub:', filename)
         }
@@ -254,7 +257,7 @@ export async function POST(request: Request) {
         // Use /tmp for Vercel or current working directory for local development
         const baseDir = process.env.VERCEL ? '/tmp' : process.cwd()
         const dir = path.join(baseDir, 'data', 'drafts')
-        
+
         try {
           await access(dir)
         } catch {
@@ -267,13 +270,16 @@ export async function POST(request: Request) {
         console.log('Successfully wrote locally:', filePath)
       } catch (localError) {
         console.error('Local write error:', localError)
-        
+
         // If both GitHub and local write fail, return error
         if (!githubResult) {
-          return NextResponse.json({ 
-            error: 'Failed to save MDX file',
-            details: localError instanceof Error ? localError.message : 'Unknown error'
-          }, { status: 500 })
+          return NextResponse.json(
+            {
+              error: 'Failed to save MDX file',
+              details: localError instanceof Error ? localError.message : 'Unknown error',
+            },
+            { status: 500 }
+          )
         }
       }
     }
@@ -295,19 +301,21 @@ export async function POST(request: Request) {
       console.log('✅ GitHub commit successful - Vercel will auto-deploy')
     }
 
-    return NextResponse.json({ 
-      ok: true, 
+    return NextResponse.json({
+      ok: true,
       path: `data/drafts/${filename}`,
       github: githubResult ? { committed: true, sha: (githubResult as any).commit?.sha } : null,
       local: localWriteSuccess,
       images: imageProcessingResult,
-      message: githubResult 
-        ? imageProcessingResult && imageProcessingResult.processed && imageProcessingResult.processed.length > 0
+      message: githubResult
+        ? imageProcessingResult &&
+          imageProcessingResult.processed &&
+          imageProcessingResult.processed.length > 0
           ? `Draft saved successfully! ${imageProcessingResult.processed.length} images processed. Awaiting admin approval.`
           : 'Draft saved successfully! Awaiting admin approval.'
-        : localWriteSuccess 
-          ? 'Draft saved locally (GitHub not configured)' 
-          : 'Draft saved'
+        : localWriteSuccess
+          ? 'Draft saved locally (GitHub not configured)'
+          : 'Draft saved',
     })
   } catch (e) {
     console.error(e)

@@ -9,11 +9,11 @@ import matter from 'gray-matter'
 function isAdmin(request: Request): boolean {
   const authHeader = request.headers.get('authorization') || ''
   const adminUsers = process.env.ADMIN_USERS || ''
-  
+
   if (!adminUsers) return false
-  
-  const admins = adminUsers.split(',').map(u => u.trim())
-  
+
+  const admins = adminUsers.split(',').map((u) => u.trim())
+
   for (const admin of admins) {
     const [username, password] = admin.split(':')
     const expected = 'Basic ' + Buffer.from(`${username}:${password}`).toString('base64')
@@ -21,7 +21,7 @@ function isAdmin(request: Request): boolean {
       return true
     }
   }
-  
+
   return false
 }
 
@@ -54,14 +54,14 @@ export async function POST(request: Request) {
       try {
         // Parse the draft content to modify frontmatter
         const { data, content } = matter(draftContent)
-        
+
         // Update frontmatter for published post
         const updatedData = {
           ...data,
           draft: false, // Set draft to false when approved
           status: 'published',
           publishedAt: new Date().toISOString(),
-          approvedBy: 'admin' // You can get this from the request if needed
+          approvedBy: 'admin', // You can get this from the request if needed
         }
 
         // Reconstruct the file with updated frontmatter
@@ -78,9 +78,10 @@ export async function POST(request: Request) {
           .join('\n')}\n---\n\n${content}`
 
         // Check if we're in a production environment (read-only file system)
-        const isProduction = process.env.NODE_ENV === 'production' || 
-                           process.env.VERCEL_ENV === 'production' ||
-                           process.env.NEXT_PUBLIC_VERCEL_ENV === 'production'
+        const isProduction =
+          process.env.NODE_ENV === 'production' ||
+          process.env.VERCEL_ENV === 'production' ||
+          process.env.NEXT_PUBLIC_VERCEL_ENV === 'production'
 
         let githubResult = null
         let localWriteSuccess = false
@@ -90,13 +91,13 @@ export async function POST(request: Request) {
           try {
             // Ensure blog directory exists
             await mkdir(path.join(process.cwd(), 'data', 'blog'), { recursive: true })
-            
+
             // Write to blog directory
             await writeFile(blogPath, updatedContent, 'utf-8')
-            
+
             // Delete the draft
             await unlink(draftPath)
-            
+
             localWriteSuccess = true
             console.log('Successfully wrote file locally')
           } catch (localError) {
@@ -126,10 +127,7 @@ export async function POST(request: Request) {
 
             // Also delete the draft from GitHub
             try {
-              await github.deleteFile(
-                `data/drafts/${slug}.mdx`,
-                `Remove approved draft: ${slug}`
-              )
+              await github.deleteFile(`data/drafts/${slug}.mdx`, `Remove approved draft: ${slug}`)
             } catch (deleteError) {
               console.error('Failed to delete draft from GitHub:', deleteError)
               // Don't fail the operation if draft deletion fails
@@ -138,7 +136,7 @@ export async function POST(request: Request) {
             console.log('Successfully committed to GitHub')
           } catch (githubError) {
             console.error('GitHub commit error:', githubError)
-            
+
             // If we're in production and GitHub failed, this is a problem
             if (isProduction) {
               throw new Error('Failed to publish to GitHub in production environment')
@@ -165,27 +163,28 @@ export async function POST(request: Request) {
           message: 'Post approved and published successfully',
           github: githubResult ? { committed: true } : null,
           local: localWriteSuccess,
-          environment: isProduction ? 'production' : 'development'
+          environment: isProduction ? 'production' : 'development',
         })
-
       } catch (error) {
         console.error('Error publishing post:', error)
-        return NextResponse.json({ 
-          error: 'Failed to publish post',
-          details: error instanceof Error ? error.message : 'Unknown error'
-        }, { status: 500 })
+        return NextResponse.json(
+          {
+            error: 'Failed to publish post',
+            details: error instanceof Error ? error.message : 'Unknown error',
+          },
+          { status: 500 }
+        )
       }
-
     } else if (action === 'reject') {
       // Update draft status to rejected and add feedback
       const { data, content } = matter(draftContent)
-      
+
       // Add rejection feedback to frontmatter
       const updatedData = {
         ...data,
         status: 'rejected',
         rejectedAt: new Date().toISOString(),
-        feedback: feedback || 'Post rejected by admin'
+        feedback: feedback || 'Post rejected by admin',
       }
 
       // Reconstruct the file with updated frontmatter
@@ -206,10 +205,9 @@ export async function POST(request: Request) {
 
       return NextResponse.json({
         success: true,
-        message: 'Post rejected successfully'
+        message: 'Post rejected successfully',
       })
     }
-
   } catch (error) {
     console.error('Error processing approval:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

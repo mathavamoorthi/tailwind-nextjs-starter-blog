@@ -21,9 +21,9 @@ export async function GET(request: Request) {
     const parsed = matter(raw)
     const authors = Array.isArray((parsed.data as any)?.authors)
       ? ((parsed.data as any).authors as unknown[]).map(String)
-      : (typeof (parsed.data as any)?.authors === 'string' && String((parsed.data as any).authors))
-      ? [String((parsed.data as any).authors)]
-      : []
+      : typeof (parsed.data as any)?.authors === 'string' && String((parsed.data as any).authors)
+        ? [String((parsed.data as any).authors)]
+        : []
     const author = getRequestAuthor(request)
     if (author && authors.length > 0 && !authors.includes(author)) {
       return NextResponse.json({ error: 'forbidden' }, { status: 403 })
@@ -34,5 +34,3 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'not found' }, { status: 404 })
   }
 }
-
-

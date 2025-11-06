@@ -37,8 +37,8 @@ export class GitHubAPI {
     const response = await fetch(url, {
       ...options,
       headers: {
-        'Authorization': `token ${this.token}`,
-        'Accept': 'application/vnd.github.v3+json',
+        Authorization: `token ${this.token}`,
+        Accept: 'application/vnd.github.v3+json',
         'Content-Type': 'application/json',
         ...options.headers,
       },
@@ -51,7 +51,7 @@ export class GitHubAPI {
         statusText: response.statusText,
         url: url,
         error: errorText,
-        contentLength: options.body ? (options.body as string).length : 0
+        contentLength: options.body ? (options.body as string).length : 0,
       })
       throw new Error(`GitHub API error: ${response.status} ${errorText}`)
     }
@@ -91,7 +91,12 @@ export class GitHubAPI {
     })
   }
 
-  async createOrUpdateFile(path: string, content: string, message: string, branch: string = 'main') {
+  async createOrUpdateFile(
+    path: string,
+    content: string,
+    message: string,
+    branch: string = 'main'
+  ) {
     try {
       // Try to get existing file to get its SHA
       const existingFile = await this.request(`/contents/${path}?ref=${branch}`)
@@ -148,14 +153,18 @@ export class GitHubAPI {
     }
   }
 
-  async commitFiles(files: Array<{ path: string; content: string }>, message: string, branch: string = 'main') {
+  async commitFiles(
+    files: Array<{ path: string; content: string }>,
+    message: string,
+    branch: string = 'main'
+  ) {
     try {
       // Get the latest commit SHA
       const ref = await this.getRef(branch)
       const latestCommit = await this.getCommit(ref.object.sha)
 
       // Create tree with new files
-      const treeFiles: GitHubFile[] = files.map(file => ({
+      const treeFiles: GitHubFile[] = files.map((file) => ({
         path: file.path,
         mode: '100644',
         type: 'blob',

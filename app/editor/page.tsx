@@ -1,4 +1,4 @@
-"use client"
+'use client'
 
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { unified } from 'unified'
@@ -60,10 +60,7 @@ export default function MDXEditorPage() {
 
   const slug = useMemo(() => slugify(frontmatter.title || 'untitled'), [frontmatter.title])
 
-  const handleChange = (
-    key: keyof Frontmatter,
-    value: string | boolean
-  ) => {
+  const handleChange = (key: keyof Frontmatter, value: string | boolean) => {
     setFrontmatter((prev) => ({ ...prev, [key]: value }))
   }
 
@@ -82,11 +79,13 @@ export default function MDXEditorPage() {
         throw new Error(data?.error || 'Failed to save')
       }
       const data = await res.json()
-      
+
       // Show appropriate message based on save result
       if (data.github?.committed) {
         if (data.images && data.images.processed && data.images.processed.length > 0) {
-          setMessage(`✅ Draft saved: ${data.path} - ${data.images.processed.length} images processed. Awaiting admin approval.`)
+          setMessage(
+            `✅ Draft saved: ${data.path} - ${data.images.processed.length} images processed. Awaiting admin approval.`
+          )
         } else {
           setMessage(`✅ Draft saved: ${data.path} - Awaiting admin approval.`)
         }
@@ -95,14 +94,16 @@ export default function MDXEditorPage() {
       } else {
         setMessage(`✅ Draft saved: ${data.path} - Awaiting admin approval.`)
       }
-      
+
       setDirty(false)
-      
+
       // Wait a moment for revalidation to complete
       setTimeout(() => {
         if (data.github?.committed) {
           if (data.images && data.images.processed && data.images.processed.length > 0) {
-            setMessage(`✅ Draft saved: ${data.path} - ${data.images.processed.length} images processed. Awaiting admin approval.`)
+            setMessage(
+              `✅ Draft saved: ${data.path} - ${data.images.processed.length} images processed. Awaiting admin approval.`
+            )
           } else {
             setMessage(`✅ Draft saved: ${data.path} - Awaiting admin approval.`)
           }
@@ -200,25 +201,52 @@ export default function MDXEditorPage() {
     const res = await fetch(`/api/editor/get?slug=${encodeURIComponent(editSlug)}`)
     if (!res.ok) return
     const data = (await res.json()) as {
-      frontmatter: Partial<Frontmatter> & { title?: string; date?: string }
+      frontmatter: Record<string, unknown> | null
       body: string
     }
+
+    const fm = (data.frontmatter ?? {}) as Record<string, unknown>
+
+    // helper to coerce array|string -> comma string
+    const joinIfArray = (v: unknown) => {
+      if (Array.isArray(v)) return v.map(String).join(', ')
+      if (typeof v === 'string') return v
+      return ''
+    }
+
     setFrontmatter((prev) => ({
       ...prev,
-      ...data.frontmatter,
-      // Coerce arrays back into comma-separated strings where needed
-      tags: Array.isArray((data.frontmatter as any).tags)
-        ? (data.frontmatter as any).tags.join(', ')
-        : (data.frontmatter as any).tags || '',
-      authors: Array.isArray((data.frontmatter as any).authors)
-        ? (data.frontmatter as any).authors.join(', ')
-        : (data.frontmatter as any).authors || '',
-      images: Array.isArray((data.frontmatter as any).images)
-        ? (data.frontmatter as any).images.join(', ')
-        : (data.frontmatter as any).images || '',
+      // scalar fields
+      title: typeof fm.title === 'string' ? fm.title : prev.title,
+      date: typeof fm.date === 'string' ? fm.date : prev.date,
+      lastmod: typeof fm.lastmod === 'string' ? fm.lastmod : prev.lastmod,
+      draft: typeof fm.draft === 'boolean' ? fm.draft : prev.draft,
+      summary: typeof fm.summary === 'string' ? fm.summary : prev.summary,
+      layout: typeof fm.layout === 'string' ? fm.layout : prev.layout,
+      bibliography: typeof fm.bibliography === 'string' ? fm.bibliography : prev.bibliography,
+      canonicalUrl: typeof fm.canonicalUrl === 'string' ? fm.canonicalUrl : prev.canonicalUrl,
+
+      // arrays or comma-separated strings -> normalize to comma string
+      tags: joinIfArray(fm.tags) || prev.tags,
+      authors: joinIfArray(fm.authors) || prev.authors,
+      images: joinIfArray(fm.images) || prev.images,
     }))
+
     setBody(data.body || '')
   }
+
+  // ---- ADD THIS AFTER loadPost(...) IS DEFINED ----
+  useEffect(() => {
+    const slugToLoad = localStorage.getItem('ADMIN_EDITOR_LOAD')
+    if (!slugToLoad) return
+
+    // single-use: remove the key so it won't auto-load again
+    localStorage.removeItem('ADMIN_EDITOR_LOAD')
+
+    // call the existing loadPost function to populate editor
+    loadPost(slugToLoad)
+  }, [])
+  // ---- END ADDITION ----
 
   async function uploadImage(file: File): Promise<string> {
     const form = new FormData()
@@ -229,18 +257,18 @@ export default function MDXEditorPage() {
       const data = await res.json().catch(() => ({}))
       throw new Error(data?.error || 'Upload failed')
     }
-    const data = await res.json() as { 
-      url: string; 
-      message?: string; 
-      blobUrl?: string;
-      filename?: string 
+    const data = (await res.json()) as {
+      url: string
+      message?: string
+      blobUrl?: string
+      filename?: string
     }
-    
+
     // Show upload status message
     if (data.message) {
       setMessage(data.message)
     }
-    
+
     return data.url // This will be the Vercel Blob CDN URL
   }
 
@@ -291,30 +319,46 @@ export default function MDXEditorPage() {
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
       <h1 className="mb-6 text-3xl font-bold">New MDX Post</h1>
-      
+
       {/* Workflow Explanation */}
-      <div className="mb-6 rounded-lg bg-blue-50 border border-blue-200 p-4 dark:bg-blue-900 dark:border-blue-700">
-        <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-200 mb-2">🚀 Vercel Blob Image Workflow</h3>
-        <div className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
-          <p>• <strong>Images are uploaded to Vercel Blob Storage</strong> for immediate preview</p>
-          <p>• <strong>CDN URLs are inserted</strong> into MDX for instant rendering</p>
-          <p>• <strong>When you publish</strong>, images are downloaded and committed to GitHub</p>
-          <p>• <strong>MDX URLs are updated</strong> to use local paths for production</p>
-          <p>• <strong>Vercel automatically redeploys</strong> with the final images</p>
+      <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-700 dark:bg-blue-900">
+        <h3 className="mb-2 text-lg font-semibold text-blue-800 dark:text-blue-200">
+          🚀 Vercel Blob Image Workflow
+        </h3>
+        <div className="space-y-1 text-sm text-blue-700 dark:text-blue-300">
+          <p>
+            • <strong>Images are uploaded to Vercel Blob Storage</strong> for immediate preview
+          </p>
+          <p>
+            • <strong>CDN URLs are inserted</strong> into MDX for instant rendering
+          </p>
+          <p>
+            • <strong>When you publish</strong>, images are downloaded and committed to GitHub
+          </p>
+          <p>
+            • <strong>MDX URLs are updated</strong> to use local paths for production
+          </p>
+          <p>
+            • <strong>Vercel automatically redeploys</strong> with the final images
+          </p>
         </div>
       </div>
-      
+
       {/* GitHub Status */}
       {githubStatus && (
-        <div className={`mb-4 rounded-lg p-3 text-sm ${
-          githubStatus.configured 
-            ? 'bg-green-100 border border-green-300 text-green-800 dark:bg-green-900 dark:border-green-700 dark:text-green-200' 
-            : 'bg-yellow-100 border border-yellow-300 text-yellow-800 dark:bg-yellow-900 dark:border-yellow-700 dark:text-yellow-200'
-        }`}>
+        <div
+          className={`mb-4 rounded-lg p-3 text-sm ${
+            githubStatus.configured
+              ? 'border border-green-300 bg-green-100 text-green-800 dark:border-green-700 dark:bg-green-900 dark:text-green-200'
+              : 'border border-yellow-300 bg-yellow-100 text-yellow-800 dark:border-yellow-700 dark:bg-yellow-900 dark:text-yellow-200'
+          }`}
+        >
           {githubStatus.configured ? (
             <div className="flex items-center gap-2">
               <span>✅</span>
-              <span>GitHub Integration: {githubStatus.owner}/{githubStatus.repo}</span>
+              <span>
+                GitHub Integration: {githubStatus.owner}/{githubStatus.repo}
+              </span>
               <span className="text-xs">(Posts will be automatically pushed to GitHub)</span>
             </div>
           ) : (
@@ -326,7 +370,7 @@ export default function MDXEditorPage() {
           )}
         </div>
       )}
-      
+
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="rounded border border-gray-300 p-3 dark:bg-gray-900">
           <div className="mb-2 text-sm font-medium">Edit existing post</div>
@@ -338,7 +382,11 @@ export default function MDXEditorPage() {
               defaultValue=""
             >
               <option value="" disabled>
-                {loadingExisting ? 'Loading…' : existingPosts.length ? 'Select a post' : 'No posts found'}
+                {loadingExisting
+                  ? 'Loading…'
+                  : existingPosts.length
+                    ? 'Select a post'
+                    : 'No posts found'}
               </option>
               {existingPosts.map((p) => (
                 <option key={p.slug} value={p.slug}>
@@ -376,7 +424,7 @@ export default function MDXEditorPage() {
             />
             <span className="text-sm font-medium">Draft</span>
           </label>
-          <div className="text-sm text-gray-600 dark:text-gray-400 self-end">Slug: {slug}</div>
+          <div className="self-end text-sm text-gray-600 dark:text-gray-400">Slug: {slug}</div>
         </div>
 
         <label className="flex flex-col">
@@ -462,13 +510,13 @@ export default function MDXEditorPage() {
             value={body}
             onChange={(e) => setBody(e.target.value)}
             onPaste={handlePaste}
-            placeholder={"\n## Hello MDX\n\nWrite your content here..."}
+            placeholder={'\n## Hello MDX\n\nWrite your content here...'}
           />
         </label>
         <div className="flex flex-col">
           <span className="mb-1 text-sm font-medium">Live Preview</span>
           <div
-            className="prose max-w-none rounded border border-gray-300 p-3 dark:prose-invert dark:bg-gray-900"
+            className="prose dark:prose-invert max-w-none rounded border border-gray-300 p-3 dark:bg-gray-900"
             dangerouslySetInnerHTML={{ __html: previewHtml }}
           />
         </div>
@@ -487,5 +535,3 @@ export default function MDXEditorPage() {
     </div>
   )
 }
-
-

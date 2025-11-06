@@ -11,7 +11,7 @@ export const revalidate = 3600
 
 export default function Page() {
   const author = allAuthors.find((p) => p.slug === 'default') as Authors
-  
+
   if (!author) {
     return (
       <div className="mx-auto max-w-4xl px-4 py-8">
@@ -31,12 +31,8 @@ export default function Page() {
         ) : (
           <div className="prose dark:prose-invert">
             <p>Hey I am {author.name}</p>
-            {author.occupation && (
-              <p>I am a {author.occupation}</p>
-            )}
-            {author.company && (
-              <p>I work at {author.company}</p>
-            )}
+            {author.occupation && <p>I am a {author.occupation}</p>}
+            {author.company && <p>I work at {author.company}</p>}
           </div>
         )}
       </AuthorLayout>

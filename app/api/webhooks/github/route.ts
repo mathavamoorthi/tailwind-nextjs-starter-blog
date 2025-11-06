@@ -6,33 +6,32 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.text()
     const signature = request.headers.get('x-hub-signature-256')
-    
+
     // Verify GitHub webhook signature
     if (process.env.GITHUB_WEBHOOK_SECRET) {
       const expectedSignature = `sha256=${crypto
         .createHmac('sha256', process.env.GITHUB_WEBHOOK_SECRET)
         .update(body)
         .digest('hex')}`
-      
+
       if (signature !== expectedSignature) {
         return NextResponse.json({ message: 'Invalid signature' }, { status: 401 })
       }
     }
 
     const payload = JSON.parse(body)
-    
+
     // Only revalidate on push to main branch
     if (payload.ref === 'refs/heads/main' && payload.commits) {
       const changedFiles = payload.commits.flatMap((commit: any) => [
         ...(commit.added || []),
         ...(commit.modified || []),
-        ...(commit.removed || [])
+        ...(commit.removed || []),
       ])
 
       // Check if blog content changed
-      const hasBlogChanges = changedFiles.some((file: string) => 
-        file.startsWith('data/blog/') || 
-        file.startsWith('data/authors/')
+      const hasBlogChanges = changedFiles.some(
+        (file: string) => file.startsWith('data/blog/') || file.startsWith('data/authors/')
       )
 
       if (hasBlogChanges) {
@@ -42,11 +41,11 @@ export async function POST(request: NextRequest) {
         revalidatePath('/tags')
         revalidatePath('/tags/[tag]', 'page')
         revalidatePath('/tags/[tag]/page/[page]', 'page')
-        
-        return NextResponse.json({ 
-          revalidated: true, 
+
+        return NextResponse.json({
+          revalidated: true,
           message: 'Blog pages revalidated',
-          changedFiles 
+          changedFiles,
         })
       }
     }

@@ -17,17 +17,24 @@ export async function POST(request: Request) {
     const { mdxContent, slug }: ProcessRequest = await request.json()
 
     if (!mdxContent || !slug) {
-      return NextResponse.json({ 
-        error: 'mdxContent and slug are required' 
-      }, { status: 400 })
+      return NextResponse.json(
+        {
+          error: 'mdxContent and slug are required',
+        },
+        { status: 400 }
+      )
     }
 
     // Check if GitHub is configured
     if (!process.env.GITHUB_TOKEN || !process.env.GITHUB_OWNER || !process.env.GITHUB_REPO) {
-      return NextResponse.json({ 
-        error: 'GitHub not configured. Please set GITHUB_TOKEN, GITHUB_OWNER, and GITHUB_REPO environment variables.',
-        details: 'Images must be committed to GitHub to work in production'
-      }, { status: 500 })
+      return NextResponse.json(
+        {
+          error:
+            'GitHub not configured. Please set GITHUB_TOKEN, GITHUB_OWNER, and GITHUB_REPO environment variables.',
+          details: 'Images must be committed to GitHub to work in production',
+        },
+        { status: 500 }
+      )
     }
 
     // Extract all image URLs from the MDX content
@@ -37,25 +44,25 @@ export async function POST(request: Request) {
 
     while ((match = imageRegex.exec(mdxContent)) !== null) {
       const [, alt, url] = match
-      
+
       // Check if this is a Vercel Blob URL
       if (url.includes('blob.vercel-storage.com') || url.includes('vercel-storage.com')) {
         const filename = url.split('/').pop() || `image-${Date.now()}.png`
         const localPath = `public/static/images/${slug}/${filename}`
-        
+
         images.push({
           blobUrl: url,
           filename,
-          localPath
+          localPath,
         })
       }
     }
 
     if (images.length === 0) {
-      return NextResponse.json({ 
+      return NextResponse.json({
         message: 'No Vercel Blob images found in MDX content',
         processedContent: mdxContent,
-        images: []
+        images: [],
       })
     }
 
@@ -76,72 +83,73 @@ export async function POST(request: Request) {
     for (const image of images) {
       try {
         console.log(`📥 Processing image: ${image.filename}`)
-        
+
         // Download image from Blob URL
         const response = await fetch(image.blobUrl)
-        
+
         if (!response.ok) {
           throw new Error(`Failed to download image: ${response.status} ${response.statusText}`)
         }
-        
+
         const imageBuffer = await response.arrayBuffer()
         const base64Content = Buffer.from(imageBuffer).toString('base64')
-        
+
         console.log(`📊 Image size: ${imageBuffer.byteLength} bytes`)
-        
+
         // Commit image to GitHub
         const commitMessage = `Add image for blog post: ${slug} - ${image.filename}`
-        
-        await github.createOrUpdateFile(
-          image.localPath,
-          base64Content,
-          commitMessage
-        )
-        
+
+        await github.createOrUpdateFile(image.localPath, base64Content, commitMessage)
+
         console.log(`✅ Image committed to GitHub: ${image.localPath}`)
-        
+
         // Replace ALL occurrences of this Blob URL with local path in MDX content
         const localUrl = `/static/images/${slug}/${image.filename}`
         processedContent = processedContent.replaceAll(image.blobUrl, localUrl)
-        
+
         console.log(`🔄 Replaced Blob URL with local path: ${localUrl}`)
-        
+
         processedImages.push(image.filename)
-        
       } catch (error) {
         console.error(`❌ Failed to process image ${image.filename}:`, error)
         failedImages.push(image.filename)
       }
     }
-    
+
     // Final verification: ensure no Blob URLs remain
-    const remainingBlobUrls = processedContent.match(/blob\.vercel-storage\.com|vercel-storage\.com/g)
+    const remainingBlobUrls = processedContent.match(
+      /blob\.vercel-storage\.com|vercel-storage\.com/g
+    )
     if (remainingBlobUrls && remainingBlobUrls.length > 0) {
-      console.warn(`⚠️ Warning: ${remainingBlobUrls.length} Blob URLs still remain in processed content`)
+      console.warn(
+        `⚠️ Warning: ${remainingBlobUrls.length} Blob URLs still remain in processed content`
+      )
     } else {
       console.log('✅ All Blob URLs successfully replaced with local paths')
     }
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       ok: true,
       message: `Processed ${processedImages.length} images successfully`,
       processedContent,
       images: {
         processed: processedImages,
         failed: failedImages,
-        total: images.length
+        total: images.length,
       },
       verification: {
         blobUrlsRemaining: remainingBlobUrls ? remainingBlobUrls.length : 0,
-        allReplaced: !remainingBlobUrls || remainingBlobUrls.length === 0
-      }
+        allReplaced: !remainingBlobUrls || remainingBlobUrls.length === 0,
+      },
     })
-
   } catch (error) {
     console.error('Process blob images error:', error)
-    return NextResponse.json({ 
-      error: 'Failed to process blob images',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: 'Failed to process blob images',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      },
+      { status: 500 }
+    )
   }
 }

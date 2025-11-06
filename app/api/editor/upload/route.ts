@@ -31,36 +31,36 @@ export async function POST(request: Request) {
     try {
       // Upload to Vercel Blob Storage
       console.log(`🚀 Uploading image to Vercel Blob: ${filename}`)
-      
+
       const blob = await put(filename, buffer, {
         access: 'public',
         addRandomSuffix: false,
       })
-      
+
       console.log(`✅ Image uploaded to Vercel Blob successfully: ${blob.url}`)
-      
+
       // Return the blob URL for immediate preview
-      return NextResponse.json({ 
-        ok: true, 
+      return NextResponse.json({
+        ok: true,
         url: blob.url, // This will be the CDN URL for preview
         filename,
         blobUrl: blob.url,
         blobPathname: blob.pathname,
-        message: '✅ Image uploaded to Vercel Blob! It will be committed to GitHub when you publish the post.'
+        message:
+          '✅ Image uploaded to Vercel Blob! It will be committed to GitHub when you publish the post.',
       })
-      
     } catch (blobError) {
       console.error('Vercel Blob upload error:', blobError)
-      return NextResponse.json({ 
-        error: 'Failed to upload image to Vercel Blob',
-        details: blobError instanceof Error ? blobError.message : 'Unknown error'
-      }, { status: 500 })
+      return NextResponse.json(
+        {
+          error: 'Failed to upload image to Vercel Blob',
+          details: blobError instanceof Error ? blobError.message : 'Unknown error',
+        },
+        { status: 500 }
+      )
     }
-    
   } catch (e) {
     console.error('Upload error:', e)
     return NextResponse.json({ error: 'upload failed' }, { status: 500 })
   }
 }
-
-

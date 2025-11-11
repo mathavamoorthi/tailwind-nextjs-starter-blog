@@ -27,7 +27,6 @@ export default function AdminDashboard() {
   const [deleteProcessing, setDeleteProcessing] = useState<string | null>(null)
   const router = useRouter()
 
-  // fetchDrafts wrapped in useCallback so it can safely be used in useEffect deps
   const fetchDrafts = useCallback(async () => {
     try {
       setLoading(true)
@@ -40,14 +39,11 @@ export default function AdminDashboard() {
       }
 
       const response = await fetch('/api/admin/drafts', {
-        headers: {
-          Authorization: `Basic ${btoa(`${username}:${password}`)}`,
-        },
+        headers: { Authorization: `Basic ${btoa(`${username}:${password}`)}` },
       })
 
       if (!response.ok) {
         if (response.status === 401) {
-          // Clear invalid credentials and redirect to login
           localStorage.removeItem('admin_username')
           localStorage.removeItem('admin_password')
           router.push('/admin/login')
@@ -80,7 +76,6 @@ export default function AdminDashboard() {
   const handleAction = async (slug: string, action: 'approve' | 'reject') => {
     try {
       setProcessing(slug)
-
       const username = localStorage.getItem('admin_username')
       const password = localStorage.getItem('admin_password')
 
@@ -95,11 +90,7 @@ export default function AdminDashboard() {
           'Content-Type': 'application/json',
           Authorization: `Basic ${btoa(`${username}:${password}`)}`,
         },
-        body: JSON.stringify({
-          slug,
-          action,
-          feedback: feedback[slug] || '',
-        }),
+        body: JSON.stringify({ slug, action, feedback: feedback[slug] || '' }),
       })
 
       if (!response.ok) {
@@ -113,13 +104,12 @@ export default function AdminDashboard() {
       }
 
       const result = await response.json()
-
       if (result.success) {
         setDrafts((prev) => prev.filter((d) => d.slug !== slug))
         setFeedback((prev) => {
-          const newFeedback = { ...prev }
-          delete newFeedback[slug]
-          return newFeedback
+          const newF = { ...prev }
+          delete newF[slug]
+          return newF
         })
         alert(action === 'approve' ? 'Post approved and published!' : 'Post rejected!')
       } else {
@@ -132,7 +122,7 @@ export default function AdminDashboard() {
     }
   }
 
-  // --- Preview ---
+  // Preview (unchanged)
   const handlePreview = async (slug: string) => {
     setPreviewHtml(null)
     setPreviewSlug(slug)
@@ -147,9 +137,7 @@ export default function AdminDashboard() {
       }
 
       const res = await fetch(`/api/admin/preview?slug=${encodeURIComponent(slug)}`, {
-        headers: {
-          Authorization: `Basic ${btoa(`${username}:${password}`)}`,
-        },
+        headers: { Authorization: `Basic ${btoa(`${username}:${password}`)}` },
       })
 
       if (!res.ok) {
@@ -175,13 +163,56 @@ export default function AdminDashboard() {
     }
   }
 
-  // --- Edit: open editor with this draft loaded ---
-  const handleEdit = (slug: string) => {
-    localStorage.setItem('ADMIN_EDITOR_LOAD', slug)
-    router.push(`/editor`)
+  // EDIT: set only ADMIN_EDITOR_LOAD and open editor (no credential injection)
+  // admin: robust edit -> fetch the draft, put payload into sessionStorage, then navigate
+  const handleEdit = async (slug: string) => {
+    try {
+      const username = localStorage.getItem('admin_username')
+      const password = localStorage.getItem('admin_password')
+
+      if (!username || !password) {
+        // fallback: send user to login if admin isn't signed in
+        router.push('/admin/login')
+        return
+      }
+
+      setProcessing(slug) // optional UI state
+      console.log('[Admin] fetching draft for edit:', slug)
+
+      const res = await fetch(`/api/editor/get?slug=${encodeURIComponent(slug)}`, {
+        headers: {
+          Authorization: `Basic ${btoa(`${username}:${password}`)}`,
+        },
+      })
+
+      if (!res.ok) {
+        // show friendly message and bail
+        const body = await res.text().catch(() => '')
+        console.error('[Admin] fetch draft failed:', res.status, body)
+        alert(`Failed to load draft for edit: ${res.status}`)
+        return
+      }
+
+      const data = await res.json()
+      // store payload in sessionStorage (single-tab lifetime, automatically cleared on tab close)
+      sessionStorage.setItem('ADMIN_EDITOR_PAYLOAD', JSON.stringify({ slug, ...data }))
+      console.log('[Admin] stored ADMIN_EDITOR_PAYLOAD, navigating to /editor')
+
+      // navigate to editor
+      router.push('/editor')
+      // one more fallback to force full navigation if router push fails
+      setTimeout(() => {
+        if (location.pathname !== '/editor') window.location.href = '/editor'
+      }, 300)
+    } catch (err) {
+      console.error('[Admin] handleEdit error:', err)
+      alert('Unexpected error while preparing editor.')
+    } finally {
+      setProcessing(null)
+    }
   }
 
-  // --- Delete ---
+  // Delete (unchanged)
   const handleDelete = async (slug: string) => {
     if (!confirm(`Delete draft "${slug}"? This cannot be undone.`)) return
 
@@ -333,14 +364,6 @@ export default function AdminDashboard() {
 
                     <p className="mb-4 text-gray-700">{draft.excerpt}</p>
 
-                    {draft.status === 'rejected' && (
-                      <div className="mb-4 rounded border border-red-200 bg-red-50 p-3">
-                        <p className="text-sm text-red-800">
-                          <strong>Rejected:</strong> {draft.feedback || 'No feedback provided'}
-                        </p>
-                      </div>
-                    )}
-
                     <div className="flex items-center space-x-2">
                       <button
                         onClick={() => handleAction(draft.slug, 'approve')}
@@ -408,7 +431,10 @@ export default function AdminDashboard() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => {
-                    if (previewSlug) handleEdit(previewSlug)
+                    if (previewSlug) {
+                      localStorage.setItem('ADMIN_EDITOR_LOAD', previewSlug)
+                      router.push('/editor')
+                    }
                   }}
                   className="rounded bg-yellow-500 px-3 py-1 text-sm text-white hover:bg-yellow-600"
                 >

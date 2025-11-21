@@ -15,13 +15,23 @@ interface Draft {
   feedback?: string
 }
 
+interface PreviewPost {
+  slug: string
+  title: string
+  date: string
+  summary: string
+  tags: string[]
+  authors: string[]
+  html: string
+}
+
 export default function AdminDashboard() {
   const [drafts, setDrafts] = useState<Draft[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [processing, setProcessing] = useState<string | null>(null)
   const [feedback, setFeedback] = useState<{ [key: string]: string }>({})
-  const [previewHtml, setPreviewHtml] = useState<string | null>(null)
+  const [previewPost, setPreviewPost] = useState<PreviewPost | null>(null)
   const [previewLoadingSlug, setPreviewLoadingSlug] = useState<string | null>(null)
   const [previewSlug, setPreviewSlug] = useState<string | null>(null)
   const [deleteProcessing, setDeleteProcessing] = useState<string | null>(null)
@@ -132,11 +142,12 @@ export default function AdminDashboard() {
     }
   }
 
-  // --- Preview ---
+  // --- Preview (now returns full post meta + html) ---
   const handlePreview = async (slug: string) => {
-    setPreviewHtml(null)
+    setPreviewPost(null)
     setPreviewSlug(slug)
     setPreviewLoadingSlug(slug)
+
     try {
       const username = localStorage.getItem('admin_username')
       const password = localStorage.getItem('admin_password')
@@ -163,13 +174,13 @@ export default function AdminDashboard() {
       }
 
       const data = await res.json()
-      if (data && data.success && data.html) {
-        setPreviewHtml(data.html)
+      if (data && data.success && data.post) {
+        setPreviewPost(data.post as PreviewPost)
       } else {
         throw new Error(data?.error || 'No preview available')
       }
     } catch (err) {
-      alert(`Preview error: ${err instanceof Error ? (err as Error).message : 'Unknown'}`)
+      alert(`Preview error: ${err instanceof Error ? err.message : 'Unknown'}`)
     } finally {
       setPreviewLoadingSlug(null)
     }
@@ -242,6 +253,15 @@ export default function AdminDashboard() {
       hour: '2-digit',
       minute: '2-digit',
     })
+
+  const formatDateShort = (dateString: string) =>
+    dateString
+      ? new Date(dateString).toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+        })
+      : ''
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -341,7 +361,7 @@ export default function AdminDashboard() {
                       </div>
                     )}
 
-                    <div className="flex items-center space-x-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <button
                         onClick={() => handleAction(draft.slug, 'approve')}
                         disabled={processing === draft.slug}
@@ -388,7 +408,7 @@ export default function AdminDashboard() {
                         onChange={(e) =>
                           setFeedback((prev) => ({ ...prev, [draft.slug]: e.target.value }))
                         }
-                        className="ml-2 rounded border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                        className="ml-2 min-w-[180px] flex-1 rounded border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
                       />
                     </div>
                   </div>
@@ -399,36 +419,75 @@ export default function AdminDashboard() {
         )}
       </div>
 
-      {/* Preview modal */}
-      {previewHtml && (
+      {/* Preview modal – tries to mimic real blog layout */}
+      {previewPost && (
         <div className="bg-opacity-50 fixed inset-0 z-50 flex items-center justify-center bg-black">
-          <div className="max-h-[85vh] w-full max-w-4xl overflow-y-auto rounded-lg bg-white p-6 shadow-lg dark:bg-gray-900">
+          <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-lg bg-white p-6 shadow-lg dark:bg-gray-900">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">Preview: {previewSlug}</h2>
+              <div>
+                <p className="text-xs tracking-wide text-gray-500 uppercase">
+                  Previewing draft: <span className="font-mono">{previewPost.slug}</span>
+                </p>
+                <h2 className="mt-1 text-2xl font-bold text-gray-900 dark:text-gray-100">
+                  {previewPost.title}
+                </h2>
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                  {previewPost.authors.length > 0 && (
+                    <span>By {previewPost.authors.join(', ')}</span>
+                  )}
+                  {previewPost.date && (
+                    <>
+                      <span>•</span>
+                      <span>{formatDateShort(previewPost.date)}</span>
+                    </>
+                  )}
+                </div>
+                {previewPost.tags && previewPost.tags.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {previewPost.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-200"
+                      >
+                        #{tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => {
-                    if (previewSlug) handleEdit(previewSlug)
+                    if (previewPost.slug) handleEdit(previewPost.slug)
                   }}
                   className="rounded bg-yellow-500 px-3 py-1 text-sm text-white hover:bg-yellow-600"
                 >
-                  Edit
+                  Edit in Editor
                 </button>
                 <button
                   onClick={() => {
-                    setPreviewHtml(null)
+                    setPreviewPost(null)
                     setPreviewSlug(null)
                   }}
-                  className="rounded bg-gray-200 px-3 py-1 text-sm text-gray-800 hover:bg-gray-300"
+                  className="rounded bg-gray-200 px-3 py-1 text-sm text-gray-800 hover:bg-gray-300 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700"
                 >
                   Close
                 </button>
               </div>
             </div>
 
-            <div
-              className="prose dark:prose-invert max-w-none"
-              dangerouslySetInnerHTML={{ __html: previewHtml }}
+            {previewPost.summary && (
+              <p className="mb-4 text-sm text-gray-600 italic dark:text-gray-300">
+                {previewPost.summary}
+              </p>
+            )}
+
+            <hr className="mb-4 border-gray-200 dark:border-gray-700" />
+
+            <article
+              className="prose prose-slate dark:prose-invert max-w-none"
+              dangerouslySetInnerHTML={{ __html: previewPost.html }}
             />
           </div>
         </div>

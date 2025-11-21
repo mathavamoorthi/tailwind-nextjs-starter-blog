@@ -8,7 +8,7 @@ import remarkGfm from 'remark-gfm'
 import remarkRehype from 'remark-rehype'
 import rehypeStringify from 'rehype-stringify'
 
-// 🔒 Reuse admin authentication (same logic as approve/drafts)
+// 🔒 Same admin authentication logic as drafts/approve
 function isAdmin(request: Request): boolean {
   const authHeader = request.headers.get('authorization') || ''
   const adminUsers = process.env.ADMIN_USERS || ''
@@ -25,22 +25,50 @@ function isAdmin(request: Request): boolean {
 }
 
 export async function GET(request: Request) {
-  if (!isAdmin(request)) {
-    return NextResponse.json({ error: 'Admin access required' }, { status: 401 })
-  }
-
-  const { searchParams } = new URL(request.url)
-  const slug = searchParams.get('slug')
-
-  if (!slug) {
-    return NextResponse.json({ error: 'Slug required' }, { status: 400 })
-  }
-
   try {
+    if (!isAdmin(request)) {
+      return NextResponse.json({ success: false, error: 'Admin access required' }, { status: 401 })
+    }
+
+    const { searchParams } = new URL(request.url)
+    const slug = (searchParams.get('slug') || '').toLowerCase()
+
+    if (!slug || /[^a-z0-9-]/.test(slug)) {
+      return NextResponse.json(
+        { success: false, error: 'Slug required or invalid' },
+        { status: 400 }
+      )
+    }
+
     const filePath = path.join(process.cwd(), 'data', 'drafts', `${slug}.mdx`)
     const raw = await readFile(filePath, 'utf-8')
-    const { content } = matter(raw)
 
+    const { data, content } = matter(raw)
+
+    // ---- Normalize frontmatter so UI can show it cleanly ----
+    const title = typeof data.title === 'string' ? data.title : slug
+    const date = typeof data.date === 'string' ? data.date : ''
+    const summary = typeof data.summary === 'string' ? data.summary : ''
+
+    const tags = Array.isArray(data.tags)
+      ? (data.tags as unknown[]).map(String)
+      : typeof data.tags === 'string'
+        ? data.tags
+            .split(',')
+            .map((t) => t.trim())
+            .filter(Boolean)
+        : []
+
+    const authors = Array.isArray(data.authors)
+      ? (data.authors as unknown[]).map(String)
+      : typeof data.authors === 'string'
+        ? data.authors
+            .split(',')
+            .map((a) => a.trim())
+            .filter(Boolean)
+        : []
+
+    // ---- Compile MD content to HTML (approximate blog rendering) ----
     const file = await unified()
       .use(remarkParse)
       .use(remarkGfm)
@@ -48,9 +76,22 @@ export async function GET(request: Request) {
       .use(rehypeStringify)
       .process(content)
 
-    return NextResponse.json({ success: true, html: String(file) })
+    const html = String(file)
+
+    return NextResponse.json({
+      success: true,
+      post: {
+        slug,
+        title,
+        date,
+        summary,
+        tags,
+        authors,
+        html,
+      },
+    })
   } catch (err) {
     console.error('Preview error:', err)
-    return NextResponse.json({ error: 'Failed to load draft' }, { status: 500 })
+    return NextResponse.json({ success: false, error: 'Failed to load draft' }, { status: 500 })
   }
 }

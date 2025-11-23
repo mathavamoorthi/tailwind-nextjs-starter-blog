@@ -49,7 +49,6 @@ function getAuthorDiscordIdFromFrontmatter(frontmatter: any): string | null {
   const authorSlug = getPrimaryAuthorSlug(frontmatter)
   if (!authorSlug) return null
 
-  // Try to match how your Author docs are shaped
   const authorDoc: any =
     allAuthors.find((a: any) => a.slug === authorSlug) ||
     allAuthors.find((a: any) => a.slug === `authors/${authorSlug}`) ||
@@ -83,7 +82,8 @@ async function notifyDiscordReject(frontmatter: any, slug: string) {
       ? `${process.env.NEXT_PUBLIC_SITE_URL}/blog/${slug}`
       : undefined
 
-    await fetch(`${NOVYY_BOT_URL}/blog-rejected`, {
+    // Use NOVYY_BOT_URL as full endpoint (e.g. https://novyy.n0va.in/blog-rejected)
+    await fetch(NOVYY_BOT_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -137,10 +137,10 @@ export async function POST(request: Request) {
         // Update frontmatter for published post
         const updatedData = {
           ...data,
-          draft: false, // Set draft to false when approved
+          draft: false,
           status: 'published',
           publishedAt: new Date().toISOString(),
-          approvedBy: 'admin', // You can get this from the request if needed
+          approvedBy: 'admin',
         }
 
         // Reconstruct the file with updated frontmatter
@@ -156,7 +156,6 @@ export async function POST(request: Request) {
           })
           .join('\n')}\n---\n\n${content}`
 
-        // Check if we're in a production environment (read-only file system)
         const isProduction =
           process.env.NODE_ENV === 'production' ||
           process.env.VERCEL_ENV === 'production' ||
@@ -165,27 +164,20 @@ export async function POST(request: Request) {
         let githubResult: any = null
         let localWriteSuccess = false
 
-        // Try to write locally first (for development)
+        // Local dev: write to filesystem
         if (!isProduction) {
           try {
-            // Ensure blog directory exists
             await mkdir(path.join(process.cwd(), 'data', 'blog'), { recursive: true })
-
-            // Write to blog directory
             await writeFile(blogPath, updatedContent, 'utf-8')
-
-            // Delete the draft
             await unlink(draftPath)
-
             localWriteSuccess = true
             console.log('Successfully wrote file locally')
           } catch (localError) {
             console.error('Local file write failed:', localError)
-            // Continue to GitHub commit as fallback
           }
         }
 
-        // Commit to GitHub (primary method for production, fallback for development)
+        // Production (and fallback): commit to GitHub
         if (process.env.GITHUB_TOKEN && process.env.GITHUB_OWNER && process.env.GITHUB_REPO) {
           try {
             const github = new GitHubAPI(
@@ -197,32 +189,27 @@ export async function POST(request: Request) {
             const commitMessage = `Publish approved post: ${slug}`
             const base64Content = Buffer.from(updatedContent, 'utf-8').toString('base64')
 
-            // Create the blog post in GitHub
             githubResult = await github.createOrUpdateFile(
               `data/blog/${slug}.mdx`,
               base64Content,
               commitMessage
             )
 
-            // Also delete the draft from GitHub
             try {
               await github.deleteFile(`data/drafts/${slug}.mdx`, `Remove approved draft: ${slug}`)
             } catch (deleteError) {
               console.error('Failed to delete draft from GitHub:', deleteError)
-              // Don't fail the operation if draft deletion fails
             }
 
             console.log('Successfully committed to GitHub')
           } catch (githubError) {
             console.error('GitHub commit error:', githubError)
 
-            // If we're in production and GitHub failed, this is a problem
             if (isProduction) {
               throw new Error('Failed to publish to GitHub in production environment')
             }
           }
         } else if (isProduction) {
-          // In production, GitHub is required
           throw new Error('GitHub configuration required for production deployment')
         }
 
@@ -242,7 +229,7 @@ export async function POST(request: Request) {
           message: 'Post approved and published successfully',
           github: githubResult ? { committed: true } : null,
           local: localWriteSuccess,
-          environment: isProduction ? 'production' : 'development',
+          environment: process.env.VERCEL_ENV || process.env.NODE_ENV || 'unknown',
         })
       } catch (error) {
         console.error('Error publishing post:', error)
@@ -279,10 +266,38 @@ export async function POST(request: Request) {
         })
         .join('\n')}\n---\n\n${content}`
 
-      // Write back to draft (save status + feedback)
-      await writeFile(draftPath, updatedContent, 'utf-8')
+      // Handle write depending on environment (Vercel FS is read-only)
+      const isProduction =
+        process.env.NODE_ENV === 'production' ||
+        process.env.VERCEL_ENV === 'production' ||
+        process.env.NEXT_PUBLIC_VERCEL_ENV === 'production'
 
-      // 🔔 NEW: Notify Novyy bot to DM the author on Discord
+      if (
+        isProduction &&
+        process.env.GITHUB_TOKEN &&
+        process.env.GITHUB_OWNER &&
+        process.env.GITHUB_REPO
+      ) {
+        // In production: update the draft via GitHub API
+        const github = new GitHubAPI(
+          process.env.GITHUB_TOKEN,
+          process.env.GITHUB_OWNER,
+          process.env.GITHUB_REPO
+        )
+
+        const base64Content = Buffer.from(updatedContent, 'utf-8').toString('base64')
+
+        await github.createOrUpdateFile(
+          `data/drafts/${slug}.mdx`,
+          base64Content,
+          `Mark draft as rejected: ${slug}`
+        )
+      } else {
+        // In local dev: write to filesystem normally
+        await writeFile(draftPath, updatedContent, 'utf-8')
+      }
+
+      // Notify Novyy bot to DM the author on Discord
       await notifyDiscordReject(updatedData, slug)
 
       return NextResponse.json({

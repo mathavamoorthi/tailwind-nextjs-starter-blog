@@ -28,7 +28,22 @@ function isAdmin(request: Request): boolean {
   return false
 }
 
-// ---------------- Helpers: author -> discordId ----------------
+// ---------------- Helpers: author slug & discordId ----------------
+
+function getPrimaryAuthorSlug(frontmatter: any): string | null {
+  const authorsField = frontmatter.authors ?? frontmatter.author
+  if (!authorsField) return null
+
+  if (Array.isArray(authorsField)) {
+    return authorsField[0] ?? null
+  }
+
+  if (typeof authorsField === 'string') {
+    return authorsField
+  }
+
+  return null
+}
 
 function getAuthorDiscordIdFromFrontmatter(frontmatter: any): string | null {
   const authorSlug = getPrimaryAuthorSlug(frontmatter)
@@ -58,20 +73,6 @@ function getAuthorDiscordIdFromFrontmatter(frontmatter: any): string | null {
   return String(authorDoc.discordId)
 }
 
-
-function getAuthorDiscordIdFromFrontmatter(frontmatter: any): string | null {
-  const authorSlug = getPrimaryAuthorSlug(frontmatter)
-  if (!authorSlug) return null
-
-  const authorDoc: any =
-    allAuthors.find((a: any) => a.slug === authorSlug) ||
-    allAuthors.find((a: any) => a.slug === `authors/${authorSlug}`) ||
-    allAuthors.find((a: any) => a._raw?.flattenedPath === authorSlug)
-
-  if (!authorDoc || !authorDoc.discordId) return null
-  return String(authorDoc.discordId)
-}
-
 // ---------------- Helper: call Novyy bot on reject ----------------
 
 async function notifyDiscordReject(frontmatter: any, slug: string) {
@@ -96,7 +97,7 @@ async function notifyDiscordReject(frontmatter: any, slug: string) {
       ? `${process.env.NEXT_PUBLIC_SITE_URL}/blog/${slug}`
       : undefined
 
-    // Use NOVYY_BOT_URL as full endpoint (e.g. https://novyy.n0va.in/blog-rejected)
+    // NOVYY_BOT_URL is full endpoint, e.g. https://novyy.n0va.in/blog-rejected
     await fetch(NOVYY_BOT_URL, {
       method: 'POST',
       headers: {
@@ -143,12 +144,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Draft not found' }, { status: 404 })
     }
 
+    // ---------- APPROVE ----------
     if (action === 'approve') {
       try {
-        // Parse the draft content to modify frontmatter
         const { data, content } = matter(draftContent)
 
-        // Update frontmatter for published post
         const updatedData = {
           ...data,
           draft: false,
@@ -157,7 +157,6 @@ export async function POST(request: Request) {
           approvedBy: 'admin',
         }
 
-        // Reconstruct the file with updated frontmatter
         const updatedContent = `---\n${Object.entries(updatedData)
           .map(([key, value]) => {
             if (typeof value === 'string') {
@@ -227,7 +226,6 @@ export async function POST(request: Request) {
           throw new Error('GitHub configuration required for production deployment')
         }
 
-        // Revalidate pages
         try {
           revalidatePath('/blog')
           revalidatePath('/blog/[page]', 'page')
@@ -255,11 +253,12 @@ export async function POST(request: Request) {
           { status: 500 }
         )
       }
-    } else if (action === 'reject') {
-      // Parse draft so we can modify frontmatter
+    }
+
+    // ---------- REJECT ----------
+    if (action === 'reject') {
       const { data, content } = matter(draftContent)
 
-      // Add rejection feedback to frontmatter
       const updatedData = {
         ...data,
         status: 'rejected',
@@ -267,7 +266,6 @@ export async function POST(request: Request) {
         feedback: feedback || 'Post rejected by admin',
       }
 
-      // Reconstruct the file with updated frontmatter
       const updatedContent = `---\n${Object.entries(updatedData)
         .map(([key, value]) => {
           if (typeof value === 'string') {
@@ -280,7 +278,6 @@ export async function POST(request: Request) {
         })
         .join('\n')}\n---\n\n${content}`
 
-      // Handle write depending on environment (Vercel FS is read-only)
       const isProduction =
         process.env.NODE_ENV === 'production' ||
         process.env.VERCEL_ENV === 'production' ||
@@ -292,7 +289,6 @@ export async function POST(request: Request) {
         process.env.GITHUB_OWNER &&
         process.env.GITHUB_REPO
       ) {
-        // In production: update the draft via GitHub API
         const github = new GitHubAPI(
           process.env.GITHUB_TOKEN,
           process.env.GITHUB_OWNER,
@@ -307,11 +303,9 @@ export async function POST(request: Request) {
           `Mark draft as rejected: ${slug}`
         )
       } else {
-        // In local dev: write to filesystem normally
         await writeFile(draftPath, updatedContent, 'utf-8')
       }
 
-      // Notify Novyy bot to DM the author on Discord
       await notifyDiscordReject(updatedData, slug)
 
       return NextResponse.json({
@@ -319,6 +313,9 @@ export async function POST(request: Request) {
         message: 'Post rejected successfully',
       })
     }
+
+    // If somehow neither branch hit:
+    return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
   } catch (error) {
     console.error('Error processing approval:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

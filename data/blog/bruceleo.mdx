@@ -17,13 +17,12 @@ approvedBy: "admin"
 
 Auth: validates Basic header against process.env.ADMIN_USERS CSV.
 
-Reads data/drafts/${slug}.mdx, uses gray-matter to parse frontmatter + content.
 
 For approve:
 
 builds updated frontmatter (sets status: 'published', publishedAt, etc).
 
-In development: writes data/blog/${slug}.mdx locally and deletes the data/drafts/${slug}.mdx.
+
 
 In production: requires GitHub config and commits file via GitHubAPI.createOrUpdateFile, then deletes draft from GitHub.
 

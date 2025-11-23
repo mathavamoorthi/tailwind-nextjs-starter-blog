@@ -1,6 +1,6 @@
 import { ReactNode } from 'react'
 import { CoreContent } from 'pliny/utils/contentlayer'
-import type { Blog, Authors } from 'contentlayer/generated'
+import type { Blog, Author } from 'contentlayer/generated'
 import Comments from '@/components/Comments'
 import Link from '@/components/Link'
 import PageTitle from '@/components/PageTitle'
@@ -23,7 +23,7 @@ const postDateTemplate: Intl.DateTimeFormatOptions = {
 
 interface LayoutProps {
   content: CoreContent<Blog>
-  authorDetails: CoreContent<Authors>[]
+  authorDetails: CoreContent<Author>[]
   next?: { path: string; title: string }
   prev?: { path: string; title: string }
   children: ReactNode
@@ -57,7 +57,7 @@ export default function PostLayout({ content, authorDetails, next, prev, childre
           </header>
           <div className="grid-rows-[auto_1fr] divide-y divide-gray-200 pb-8 xl:grid xl:grid-cols-4 xl:gap-x-6 xl:divide-y-0 dark:divide-gray-700">
             <dl className="pt-6 pb-10 xl:border-b xl:border-gray-200 xl:pt-11 xl:dark:border-gray-700">
-              <dt className="sr-only">Authors</dt>
+              <dt className="sr-only">Author</dt>
               <dd>
                 <ul className="flex flex-wrap justify-center gap-4 sm:space-x-12 xl:block xl:space-y-8 xl:space-x-0">
                   {authorDetails.map((author) => (

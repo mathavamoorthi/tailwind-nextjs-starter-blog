@@ -1,4 +1,4 @@
-import { allAuthors, Author } from 'contentlayer/generated'
+import { allAuthors } from 'contentlayer/generated'
 import { MDXLayoutRenderer } from 'pliny/mdx-components'
 import AuthorLayout from '@/layouts/AuthorLayout'
 import { coreContent } from 'pliny/utils/contentlayer'
@@ -10,8 +10,8 @@ export const metadata = genPageMetadata({ title: 'About' })
 export const revalidate = 3600
 
 export default function Page() {
-  // Find the default author
-  const author = allAuthors.find((p) => p.slug === 'default') as Author | undefined
+  // Find the default author (no explicit TS types here on purpose)
+  const author = allAuthors.find((p) => p.slug === 'default')
 
   if (!author) {
     return (

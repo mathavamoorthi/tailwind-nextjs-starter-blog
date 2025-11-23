@@ -128,8 +128,8 @@ export const Blog = defineDocumentType(() => ({
   },
 }))
 
-export const Authors = defineDocumentType(() => ({
-  name: 'Authors',
+export const Author = defineDocumentType(() => ({
+  name: 'Author',
   filePathPattern: 'authors/**/*.mdx',
   contentType: 'mdx',
   fields: {
@@ -142,6 +142,7 @@ export const Authors = defineDocumentType(() => ({
     bluesky: { type: 'string' },
     linkedin: { type: 'string' },
     github: { type: 'string' },
+    discordId: { type: 'string', required: false },
     layout: { type: 'string' },
   },
   computedFields,
@@ -149,7 +150,7 @@ export const Authors = defineDocumentType(() => ({
 
 export default makeSource({
   contentDirPath: 'data',
-  documentTypes: [Blog, Authors],
+  documentTypes: [Blog, Author],
   mdx: {
     cwd: process.cwd(),
     remarkPlugins: [

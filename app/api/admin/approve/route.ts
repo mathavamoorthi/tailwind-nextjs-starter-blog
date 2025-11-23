@@ -1,11 +1,14 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from 'next/server'
 import path from 'path'
 import { readFile, writeFile, mkdir, unlink } from 'fs/promises'
 import { GitHubAPI } from '../../../../lib/github'
 import { revalidatePath } from 'next/cache'
 import matter from 'gray-matter'
+import { allAuthors } from 'contentlayer/generated'
 
-// Admin authentication check
+// ---------------- Admin authentication ----------------
+
 function isAdmin(request: Request): boolean {
   const authHeader = request.headers.get('authorization') || ''
   const adminUsers = process.env.ADMIN_USERS || ''
@@ -24,6 +27,82 @@ function isAdmin(request: Request): boolean {
 
   return false
 }
+
+// ---------------- Helpers: author -> discordId ----------------
+
+function getPrimaryAuthorSlug(frontmatter: any): string | null {
+  const authorsField = frontmatter.authors ?? frontmatter.author
+  if (!authorsField) return null
+
+  if (Array.isArray(authorsField)) {
+    return authorsField[0] ?? null
+  }
+
+  if (typeof authorsField === 'string') {
+    return authorsField
+  }
+
+  return null
+}
+
+function getAuthorDiscordIdFromFrontmatter(frontmatter: any): string | null {
+  const authorSlug = getPrimaryAuthorSlug(frontmatter)
+  if (!authorSlug) return null
+
+  // Try to match how your Author docs are shaped
+  const authorDoc: any =
+    allAuthors.find((a: any) => a.slug === authorSlug) ||
+    allAuthors.find((a: any) => a.slug === `authors/${authorSlug}`) ||
+    allAuthors.find((a: any) => a._raw?.flattenedPath === authorSlug)
+
+  if (!authorDoc || !authorDoc.discordId) return null
+  return String(authorDoc.discordId)
+}
+
+// ---------------- Helper: call Novyy bot on reject ----------------
+
+async function notifyDiscordReject(frontmatter: any, slug: string) {
+  try {
+    const NOVYY_BOT_URL = process.env.NOVYY_BOT_URL
+    const INTERNAL_SECRET = process.env.INTERNAL_SECRET
+
+    if (!NOVYY_BOT_URL || !INTERNAL_SECRET) {
+      console.warn('NOVYY_BOT_URL or INTERNAL_SECRET not configured; skipping Discord notification')
+      return
+    }
+
+    const discordId = getAuthorDiscordIdFromFrontmatter(frontmatter)
+    if (!discordId) {
+      console.warn('No discordId found for author; skipping Discord notification')
+      return
+    }
+
+    const postTitle = frontmatter.title || slug
+    const reason = frontmatter.feedback || 'Post rejected by admin'
+    const postUrl = process.env.NEXT_PUBLIC_SITE_URL
+      ? `${process.env.NEXT_PUBLIC_SITE_URL}/blog/${slug}`
+      : undefined
+
+    await fetch(`${NOVYY_BOT_URL}/blog-rejected`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Internal-Secret': INTERNAL_SECRET,
+      },
+      body: JSON.stringify({
+        authorDiscordId: discordId,
+        postTitle,
+        reason,
+        postUrl,
+      }),
+    })
+  } catch (err) {
+    console.error('Failed to send Discord rejection notification:', err)
+    // Do NOT break the main rejection flow if Discord fails
+  }
+}
+
+// ---------------- Main handler ----------------
 
 export async function POST(request: Request) {
   try {
@@ -83,7 +162,7 @@ export async function POST(request: Request) {
           process.env.VERCEL_ENV === 'production' ||
           process.env.NEXT_PUBLIC_VERCEL_ENV === 'production'
 
-        let githubResult = null
+        let githubResult: any = null
         let localWriteSuccess = false
 
         // Try to write locally first (for development)
@@ -176,7 +255,7 @@ export async function POST(request: Request) {
         )
       }
     } else if (action === 'reject') {
-      // Update draft status to rejected and add feedback
+      // Parse draft so we can modify frontmatter
       const { data, content } = matter(draftContent)
 
       // Add rejection feedback to frontmatter
@@ -200,8 +279,11 @@ export async function POST(request: Request) {
         })
         .join('\n')}\n---\n\n${content}`
 
-      // Write back to draft
+      // Write back to draft (save status + feedback)
       await writeFile(draftPath, updatedContent, 'utf-8')
+
+      // 🔔 NEW: Notify Novyy bot to DM the author on Discord
+      await notifyDiscordReject(updatedData, slug)
 
       return NextResponse.json({
         success: true,

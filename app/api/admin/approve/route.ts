@@ -30,20 +30,34 @@ function isAdmin(request: Request): boolean {
 
 // ---------------- Helpers: author -> discordId ----------------
 
-function getPrimaryAuthorSlug(frontmatter: any): string | null {
-  const authorsField = frontmatter.authors ?? frontmatter.author
-  if (!authorsField) return null
+function getAuthorDiscordIdFromFrontmatter(frontmatter: any): string | null {
+  const authorSlug = getPrimaryAuthorSlug(frontmatter)
+  if (!authorSlug) return null
 
-  if (Array.isArray(authorsField)) {
-    return authorsField[0] ?? null
+  const target = authorSlug.toString().toLowerCase()
+
+  const authorDoc = allAuthors.find((a: any) => {
+    const slug = (a.slug ?? '').toString()
+    const flattened = (a._raw?.flattenedPath ?? '').toString()
+    const base = slug.split('/').pop() || ''
+    const name = (a.name ?? '').toString()
+
+    return (
+      slug.toLowerCase() === target ||
+      base.toLowerCase() === target ||
+      flattened.toLowerCase() === target ||
+      name.toLowerCase() === target
+    )
+  })
+
+  if (!authorDoc || !authorDoc.discordId) {
+    console.warn('No discordId for author', authorSlug)
+    return null
   }
 
-  if (typeof authorsField === 'string') {
-    return authorsField
-  }
-
-  return null
+  return String(authorDoc.discordId)
 }
+
 
 function getAuthorDiscordIdFromFrontmatter(frontmatter: any): string | null {
   const authorSlug = getPrimaryAuthorSlug(frontmatter)

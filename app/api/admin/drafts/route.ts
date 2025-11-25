@@ -38,7 +38,6 @@ export async function GET(request: Request) {
     try {
       draftFiles = await readdir(draftsDir)
     } catch {
-      // Drafts directory doesn't exist yet
       draftFiles = []
     }
 
@@ -66,16 +65,23 @@ export async function GET(request: Request) {
                 ? [String((data as any).authors)]
                 : []
 
-            // Status coming from editor:
-            // - "draft"           => private, not for admin
-            // - "pending_review"  => submitted to admin
-            const status = (data?.status as string) || 'draft'
+            // 🔹 Derive status robustly:
+            // - If data.status exists, use it
+            // - Else if draft === false => treat as pending_review
+            // - Else => draft
+            const rawStatus = (data as any)?.status as string | undefined
+            const draftFlag = (data as any)?.draft as boolean | undefined
+
+            const status = rawStatus
+              ? String(rawStatus)
+              : draftFlag === false
+                ? 'pending_review'
+                : 'draft'
 
             const createdAt = (data?.createdAt as string) || new Date().toISOString()
             const updatedAt = (data?.updatedAt as string) || createdAt
             const feedback = (data?.feedback as string) || ''
 
-            // Check if this slug already exists in published posts
             const slug = f.replace(/\.mdx$/, '')
             const isConflict = publishedFiles.includes(f)
 
@@ -97,12 +103,11 @@ export async function GET(request: Request) {
         })
     )
 
-    // 1) Remove nulls
     const allDrafts = drafts.filter(
       (d): d is NonNullable<(typeof drafts)[number]> => d !== null
     )
 
-    // 2) 🔥 Admin sees only "pending_review"
+    // 🔥 Admin sees only ones actually submitted for review
     const pendingDrafts = allDrafts.filter((d) => d.status === 'pending_review')
 
     return NextResponse.json({

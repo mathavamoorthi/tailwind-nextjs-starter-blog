@@ -52,6 +52,7 @@ export default function MDXEditorPage() {
   const [dirty, setDirty] = useState<boolean>(false)
   const [loadingExisting, setLoadingExisting] = useState<boolean>(false)
   const [existingPosts, setExistingPosts] = useState<{ title: string; slug: string }[]>([])
+  const [draftPosts, setDraftPosts] = useState<{ title: string; slug: string; status: string }[]>([])
   const [githubStatus, setGitHubStatus] = useState<{
     configured: boolean
     owner: string | null
@@ -147,7 +148,7 @@ export default function MDXEditorPage() {
     }
   }, [body])
 
-  // Load existing posts for quick editing
+  // Load existing posts for quick editing (published/approved blog posts)
   useEffect(() => {
     let cancelled = false
     async function fetchPosts() {
@@ -162,6 +163,27 @@ export default function MDXEditorPage() {
       }
     }
     fetchPosts()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Load drafts for this editor
+  useEffect(() => {
+    let cancelled = false
+    async function fetchDrafts() {
+      try {
+        const res = await fetch('/api/editor/drafts')
+        if (!res.ok) return
+        const data = (await res.json()) as {
+          posts: { title: string; slug: string; status: string }[]
+        }
+        if (!cancelled) setDraftPosts(data.posts || [])
+      } catch (e) {
+        console.error('Failed to load drafts', e)
+      }
+    }
+    fetchDrafts()
     return () => {
       cancelled = true
     }
@@ -361,6 +383,28 @@ export default function MDXEditorPage() {
       )}
 
       <form onSubmit={handleSaveDraft} className="space-y-6">
+        {/* Your drafts */}
+        <div className="rounded border border-gray-300 p-3 dark:bg-gray-900">
+          <div className="mb-2 text-sm font-medium">Your drafts</div>
+          <div className="flex gap-2">
+            <select
+              className="w-full rounded border border-gray-300 p-2 dark:bg-gray-950"
+              onChange={(e) => e.target.value && loadPost(e.target.value)}
+              defaultValue=""
+            >
+              <option value="" disabled>
+                {draftPosts.length ? 'Select a draft' : 'No drafts yet'}
+              </option>
+              {draftPosts.map((p) => (
+                <option key={p.slug} value={p.slug}>
+                  {p.title} {p.status === 'pending_review' ? '(submitted)' : '(draft)'}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Existing published posts */}
         <div className="rounded border border-gray-300 p-3 dark:bg-gray-900">
           <div className="mb-2 text-sm font-medium">Edit existing post</div>
           <div className="flex gap-2">
@@ -385,6 +429,7 @@ export default function MDXEditorPage() {
             </select>
           </div>
         </div>
+
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <label className="flex flex-col">
             <span className="mb-1 text-sm font-medium">Title *</span>

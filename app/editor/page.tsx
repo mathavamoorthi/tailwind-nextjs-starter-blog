@@ -64,15 +64,15 @@ export default function MDXEditorPage() {
     setFrontmatter((prev) => ({ ...prev, [key]: value }))
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  // Generic save function that supports both draft + submit
+  async function savePost(mode: 'draft' | 'submit') {
     setSaving(true)
     setMessage('')
     try {
       const res = await fetch('/api/editor/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ frontmatter, body, slug }),
+        body: JSON.stringify({ frontmatter, body, slug, mode }), // send mode
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
@@ -80,45 +80,34 @@ export default function MDXEditorPage() {
       }
       const data = await res.json()
 
-      // Show appropriate message based on save result
-      if (data.github?.committed) {
-        if (data.images && data.images.processed && data.images.processed.length > 0) {
-          setMessage(
-            `✅ Draft saved: ${data.path} - ${data.images.processed.length} images processed. Awaiting admin approval.`
-          )
-        } else {
-          setMessage(`✅ Draft saved: ${data.path} - Awaiting admin approval.`)
-        }
-      } else if (data.local) {
-        setMessage(`✅ Draft saved: ${data.path} - Saved locally (GitHub not configured)`)
+      if (typeof data.message === 'string' && data.message.length > 0) {
+        setMessage(`✅ ${data.message}`)
       } else {
-        setMessage(`✅ Draft saved: ${data.path} - Awaiting admin approval.`)
+        if (mode === 'submit') {
+          setMessage(`✅ Submitted for review: ${data.path}`)
+        } else {
+          setMessage(`✅ Draft saved: ${data.path}`)
+        }
       }
 
       setDirty(false)
-
-      // Wait a moment for revalidation to complete
-      setTimeout(() => {
-        if (data.github?.committed) {
-          if (data.images && data.images.processed && data.images.processed.length > 0) {
-            setMessage(
-              `✅ Draft saved: ${data.path} - ${data.images.processed.length} images processed. Awaiting admin approval.`
-            )
-          } else {
-            setMessage(`✅ Draft saved: ${data.path} - Awaiting admin approval.`)
-          }
-        } else if (data.local) {
-          setMessage(`✅ Draft saved: ${data.path} - Saved locally`)
-        } else {
-          setMessage(`✅ Draft saved: ${data.path} - Awaiting admin approval.`)
-        }
-      }, 2000)
     } catch (err) {
       const error = err as Error
       setMessage(error.message)
     } finally {
       setSaving(false)
     }
+  }
+
+  // Form submit = "Save draft"
+  const handleSaveDraft = async (e: React.FormEvent) => {
+    e.preventDefault()
+    await savePost('draft')
+  }
+
+  // Secondary button click = "Submit for review"
+  const handleSubmitForReview = async () => {
+    await savePost('submit')
   }
 
   useEffect(() => {
@@ -235,7 +224,7 @@ export default function MDXEditorPage() {
     setBody(data.body || '')
   }
 
-  // ---- ADD THIS AFTER loadPost(...) IS DEFINED ----
+  // ---- Load specific post when admin sets ADMIN_EDITOR_LOAD ----
   useEffect(() => {
     const slugToLoad = localStorage.getItem('ADMIN_EDITOR_LOAD')
     if (!slugToLoad) return
@@ -246,7 +235,7 @@ export default function MDXEditorPage() {
     // call the existing loadPost function to populate editor
     loadPost(slugToLoad)
   }, [])
-  // ---- END ADDITION ----
+  // ---- END ----
 
   async function uploadImage(file: File): Promise<string> {
     const form = new FormData()
@@ -371,7 +360,7 @@ export default function MDXEditorPage() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSaveDraft} className="space-y-6">
         <div className="rounded border border-gray-300 p-3 dark:bg-gray-900">
           <div className="mb-2 text-sm font-medium">Edit existing post</div>
           <div className="flex gap-2">
@@ -521,15 +510,31 @@ export default function MDXEditorPage() {
           />
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Save as draft */}
           <button
             type="submit"
             disabled={saving}
             className="rounded bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
           >
-            {saving ? 'Saving…' : 'Save MDX'}
+            {saving ? 'Saving…' : 'Save Draft'}
           </button>
-          {message && <span className="text-sm text-gray-700 dark:text-gray-300">{message}</span>}
+
+          {/* Submit for review */}
+          <button
+            type="button"
+            disabled={saving}
+            onClick={handleSubmitForReview}
+            className="rounded bg-green-600 px-4 py-2 font-semibold text-white hover:bg-green-700 disabled:opacity-50"
+          >
+            {saving ? 'Submitting…' : 'Submit for review'}
+          </button>
+
+          {message && (
+            <span className="text-sm text-gray-700 dark:text-gray-300">
+              {message}
+            </span>
+          )}
         </div>
       </form>
     </div>

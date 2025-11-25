@@ -97,7 +97,6 @@ async function notifyDiscordReject(frontmatter: any, slug: string) {
       ? `${process.env.NEXT_PUBLIC_SITE_URL}/blog/${slug}`
       : undefined
 
-    // NOVYY_BOT_URL is full endpoint, e.g. https://novyy.n0va.in/blog-rejected
     await fetch(NOVYY_BOT_URL, {
       method: 'POST',
       headers: {
@@ -144,53 +143,50 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Draft not found' }, { status: 404 })
     }
 
+    const isProduction =
+      process.env.NODE_ENV === 'production' ||
+      process.env.VERCEL_ENV === 'production' ||
+      process.env.NEXT_PUBLIC_VERCEL_ENV === 'production'
+
     // ---------- APPROVE ----------
     if (action === 'approve') {
       try {
-        const { data, content } = matter(draftContent)
+        const parsed = matter(draftContent)
+        const data = parsed.data || {}
+        const content = parsed.content || ''
+
+        const now = new Date().toISOString()
 
         const updatedData = {
           ...data,
           draft: false,
           status: 'published',
-          publishedAt: new Date().toISOString(),
+          // Keep existing publishedAt if already set, otherwise set now
+          publishedAt: (data as any).publishedAt || now,
+          updatedAt: now,
           approvedBy: 'admin',
         }
 
-        const updatedContent = `---\n${Object.entries(updatedData)
-          .map(([key, value]) => {
-            if (typeof value === 'string') {
-              return `${key}: "${value}"`
-            } else if (typeof value === 'boolean') {
-              return `${key}: ${value}`
-            } else {
-              return `${key}: ${JSON.stringify(value)}`
-            }
-          })
-          .join('\n')}\n---\n\n${content}`
-
-        const isProduction =
-          process.env.NODE_ENV === 'production' ||
-          process.env.VERCEL_ENV === 'production' ||
-          process.env.NEXT_PUBLIC_VERCEL_ENV === 'production'
+        // Use gray-matter to rebuild frontmatter cleanly
+        const updatedContent = matter.stringify(content, updatedData)
 
         let githubResult: any = null
         let localWriteSuccess = false
 
-        // Local dev: write to filesystem
+        // Local dev: write directly to filesystem
         if (!isProduction) {
           try {
             await mkdir(path.join(process.cwd(), 'data', 'blog'), { recursive: true })
             await writeFile(blogPath, updatedContent, 'utf-8')
             await unlink(draftPath)
             localWriteSuccess = true
-            console.log('Successfully wrote file locally')
+            console.log('✅ Approved post written locally and draft removed')
           } catch (localError) {
             console.error('Local file write failed:', localError)
           }
         }
 
-        // Production (and fallback): commit to GitHub
+        // Production (and also usable in dev if envs set): commit to GitHub
         if (process.env.GITHUB_TOKEN && process.env.GITHUB_OWNER && process.env.GITHUB_REPO) {
           try {
             const github = new GitHubAPI(
@@ -214,7 +210,7 @@ export async function POST(request: Request) {
               console.error('Failed to delete draft from GitHub:', deleteError)
             }
 
-            console.log('Successfully committed to GitHub')
+            console.log('✅ Successfully committed approved post to GitHub')
           } catch (githubError) {
             console.error('GitHub commit error:', githubError)
 
@@ -223,9 +219,11 @@ export async function POST(request: Request) {
             }
           }
         } else if (isProduction) {
+          // In production we expect GitHub config
           throw new Error('GitHub configuration required for production deployment')
         }
 
+        // Revalidate pages so front page / tags update
         try {
           revalidatePath('/blog')
           revalidatePath('/blog/[page]', 'page')
@@ -257,61 +255,60 @@ export async function POST(request: Request) {
 
     // ---------- REJECT ----------
     if (action === 'reject') {
-      const { data, content } = matter(draftContent)
+      try {
+        const parsed = matter(draftContent)
+        const data = parsed.data || {}
+        const content = parsed.content || ''
+        const now = new Date().toISOString()
 
-      const updatedData = {
-        ...data,
-        status: 'rejected',
-        rejectedAt: new Date().toISOString(),
-        feedback: feedback || 'Post rejected by admin',
-      }
+        const updatedData = {
+          ...data,
+          status: 'rejected',
+          rejectedAt: now,
+          feedback: feedback || 'Post rejected by admin',
+        }
 
-      const updatedContent = `---\n${Object.entries(updatedData)
-        .map(([key, value]) => {
-          if (typeof value === 'string') {
-            return `${key}: "${value}"`
-          } else if (typeof value === 'boolean') {
-            return `${key}: ${value}`
-          } else {
-            return `${key}: ${JSON.stringify(value)}`
-          }
-        })
-        .join('\n')}\n---\n\n${content}`
+        const updatedContent = matter.stringify(content, updatedData)
 
-      const isProduction =
-        process.env.NODE_ENV === 'production' ||
-        process.env.VERCEL_ENV === 'production' ||
-        process.env.NEXT_PUBLIC_VERCEL_ENV === 'production'
-
-      if (
-        isProduction &&
-        process.env.GITHUB_TOKEN &&
-        process.env.GITHUB_OWNER &&
-        process.env.GITHUB_REPO
-      ) {
-        const github = new GitHubAPI(
-          process.env.GITHUB_TOKEN,
-          process.env.GITHUB_OWNER,
+        if (
+          isProduction &&
+          process.env.GITHUB_TOKEN &&
+          process.env.GITHUB_OWNER &&
           process.env.GITHUB_REPO
-        )
+        ) {
+          const github = new GitHubAPI(
+            process.env.GITHUB_TOKEN,
+            process.env.GITHUB_OWNER,
+            process.env.GITHUB_REPO
+          )
 
-        const base64Content = Buffer.from(updatedContent, 'utf-8').toString('base64')
+          const base64Content = Buffer.from(updatedContent, 'utf-8').toString('base64')
 
-        await github.createOrUpdateFile(
-          `data/drafts/${slug}.mdx`,
-          base64Content,
-          `Mark draft as rejected: ${slug}`
+          await github.createOrUpdateFile(
+            `data/drafts/${slug}.mdx`,
+            base64Content,
+            `Mark draft as rejected: ${slug}`
+          )
+        } else {
+          await writeFile(draftPath, updatedContent, 'utf-8')
+        }
+
+        await notifyDiscordReject(updatedData, slug)
+
+        return NextResponse.json({
+          success: true,
+          message: 'Post rejected successfully',
+        })
+      } catch (error) {
+        console.error('Error rejecting post:', error)
+        return NextResponse.json(
+          {
+            error: 'Failed to reject post',
+            details: error instanceof Error ? error.message : 'Unknown error',
+          },
+          { status: 500 }
         )
-      } else {
-        await writeFile(draftPath, updatedContent, 'utf-8')
       }
-
-      await notifyDiscordReject(updatedData, slug)
-
-      return NextResponse.json({
-        success: true,
-        message: 'Post rejected successfully',
-      })
     }
 
     // If somehow neither branch hit:

@@ -8,7 +8,7 @@ type RequestBody = {
   frontmatter: Record<string, unknown>
   body: string
   slug: string
-  mode?: 'draft' | 'submit' // NEW: tells us if this is Save Draft or Submit for Review
+  mode?: 'draft' | 'submit' // Save Draft vs Submit for Review
 }
 
 function toArrayOrUndefined(value: unknown): string[] | undefined {
@@ -83,25 +83,30 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'invalid slug' }, { status: 400 })
     }
 
+    const isSubmit = mode === 'submit'
     const filename = `${slug}.mdx`
     const fm = buildFrontmatter(frontmatter)
+
     const actorAuthor = getRequestAuthor(request)
     if (actorAuthor) {
       // Force authors to be the authenticated author only
       fm.authors = [actorAuthor]
     }
 
-    // Decide draft vs submit
-    const isSubmit = mode === 'submit'
+    // Status + draft flag
     const desiredStatus = isSubmit ? 'pending_review' : 'draft'
-
-    // Keep a boolean draft flag for compatibility + a status field
-    fm.draft = !isSubmit
     ;(fm as any).status = desiredStatus
+    ;(fm as any).draft = !isSubmit
 
-    // Timestamps
-    ;(fm as any).createdAt = new Date().toISOString()
-    ;(fm as any).updatedAt = new Date().toISOString()
+    // Timestamps – preserve existing createdAt if present
+    const now = new Date().toISOString()
+    const existingCreatedAt =
+      (frontmatter as any)?.createdAt && typeof (frontmatter as any).createdAt === 'string'
+        ? (frontmatter as any).createdAt
+        : undefined
+
+    ;(fm as any).createdAt = existingCreatedAt || now
+    ;(fm as any).updatedAt = now
 
     const fmText = serializeFrontmatter(fm)
     const content = `${fmText}\n\n${mdxBody || ''}\n`
@@ -111,23 +116,19 @@ export async function POST(request: Request) {
     let imageProcessingResult: any = null
 
     try {
-      // Check if there are any Vercel Blob URLs in the content
       if (content.includes('blob.vercel-storage.com') || content.includes('vercel-storage.com')) {
         console.log('🔄 Processing Vercel Blob images...')
 
-        // Check if GitHub is configured
         if (!process.env.GITHUB_TOKEN || !process.env.GITHUB_OWNER || !process.env.GITHUB_REPO) {
           console.warn('⚠️ GitHub not configured - skipping blob image processing')
         } else {
-          // Extract all image URLs from the MDX content
           const imageRegex = /!\[([^\]]*)\]\(([^)]+)\)/g
           const images: Array<{ blobUrl: string; filename: string; localPath: string }> = []
           let match
 
           while ((match = imageRegex.exec(content)) !== null) {
-            const [, alt, url] = match
+            const [, , url] = match
 
-            // Check if this is a Vercel Blob URL
             if (url.includes('blob.vercel-storage.com') || url.includes('vercel-storage.com')) {
               const filename = url.split('/').pop() || `image-${Date.now()}.png`
               const localPath = `public/static/images/${slug}/${filename}`
@@ -143,7 +144,6 @@ export async function POST(request: Request) {
           if (images.length > 0) {
             console.log(`🔍 Found ${images.length} Vercel Blob images to process`)
 
-            // Create GitHub API instance
             const github = new GitHubAPI(
               process.env.GITHUB_TOKEN,
               process.env.GITHUB_OWNER,
@@ -153,14 +153,11 @@ export async function POST(request: Request) {
             const processedImages: string[] = []
             const failedImages: string[] = []
 
-            // Process each image
             for (const image of images) {
               try {
                 console.log(`📥 Processing image: ${image.filename}`)
 
-                // Download image from Blob URL
                 const response = await fetch(image.blobUrl)
-
                 if (!response.ok) {
                   throw new Error(
                     `Failed to download image: ${response.status} ${response.statusText}`
@@ -172,14 +169,12 @@ export async function POST(request: Request) {
 
                 console.log(`📊 Image size: ${imageBuffer.byteLength} bytes`)
 
-                // Commit image to GitHub
                 const commitMessage = `Add image for blog post: ${slug} - ${image.filename}`
 
                 await github.createOrUpdateFile(image.localPath, base64Content, commitMessage)
 
                 console.log(`✅ Image committed to GitHub: ${image.localPath}`)
 
-                // Replace ALL occurrences of this Blob URL with local path in MDX content
                 const localUrl = `/static/images/${slug}/${image.filename}`
                 processedContent = processedContent.replaceAll(image.blobUrl, localUrl)
 
@@ -192,7 +187,6 @@ export async function POST(request: Request) {
               }
             }
 
-            // Final verification: ensure no Blob URLs remain
             const remainingBlobUrls = processedContent.match(
               /blob\.vercel-storage\.com|vercel-storage\.com/g
             )
@@ -216,15 +210,12 @@ export async function POST(request: Request) {
       }
     } catch (processError) {
       console.error('Image processing error:', processError)
-      // Continue with original content if processing fails
     }
 
-    // In production (Vercel), we can't write to the filesystem
-    // So we only write to GitHub and rely on the build process
+    // GitHub first
     let githubResult = null
     let localWriteSuccess = false
 
-    // Try to write to GitHub first (this is the primary method)
     if (process.env.GITHUB_TOKEN && process.env.GITHUB_OWNER && process.env.GITHUB_REPO) {
       try {
         const github = new GitHubAPI(
@@ -233,20 +224,18 @@ export async function POST(request: Request) {
           process.env.GITHUB_REPO
         )
 
-        const commitMessage = `Add/Update draft post: ${frontmatter.title}`
+        const commitMessage = isSubmit
+          ? `Submit post for review: ${frontmatter.title}`
+          : `Save draft post: ${frontmatter.title}`
 
-        // Encode the MDX content as base64 for GitHub API
         const base64Content = Buffer.from(processedContent, 'utf-8').toString('base64')
 
         console.log(`📄 MDX Content length: ${processedContent.length} characters`)
         console.log(`📄 Base64 Content length: ${base64Content.length} characters`)
-        console.log(
-          `📄 Base64 validation: ${/^[A-Za-z0-9+/]*={0,2}$/.test(base64Content) ? '✅ Valid' : '❌ Invalid'}`
-        )
 
         githubResult = await github.createOrUpdateFile(
           `data/drafts/${filename}`,
-          base64Content, // Send base64 encoded content
+          base64Content,
           commitMessage
         )
 
@@ -255,14 +244,12 @@ export async function POST(request: Request) {
         }
       } catch (error) {
         console.error('GitHub push error:', error)
-        // If GitHub fails, we'll try local write as fallback
       }
     }
 
-    // Fallback: Try to write locally (for development or if GitHub fails)
+    // Local fallback
     if (!githubResult) {
       try {
-        // Use /tmp for Vercel or current working directory for local development
         const baseDir = process.env.VERCEL ? '/tmp' : process.cwd()
         const dir = path.join(baseDir, 'data', 'drafts')
 
@@ -273,13 +260,12 @@ export async function POST(request: Request) {
         }
 
         const filePath = path.join(dir, filename)
-        await writeFile(filePath, processedContent, 'utf-8') // Use processedContent for local write (not base64)
+        await writeFile(filePath, processedContent, 'utf-8')
         localWriteSuccess = true
         console.log('Successfully wrote locally:', filePath)
       } catch (localError) {
         console.error('Local write error:', localError)
 
-        // If both GitHub and local write fail, return error
         if (!githubResult) {
           return NextResponse.json(
             {
@@ -292,7 +278,7 @@ export async function POST(request: Request) {
       }
     }
 
-    // Revalidate blog pages to show new content
+    // Revalidate blog-related paths (safe even though drafts aren't visible yet)
     try {
       revalidatePath('/blog')
       revalidatePath('/blog/[page]', 'page')
@@ -303,13 +289,7 @@ export async function POST(request: Request) {
       console.error('Revalidation error:', error)
     }
 
-    // Vercel auto-deployment is enabled, so no need for webhook
-    // GitHub commits will automatically trigger Vercel rebuilds
-    if (githubResult) {
-      console.log('✅ GitHub commit successful - Vercel will auto-deploy')
-    }
-
-    const baseMessageDraft =
+    const baseMessageImages =
       imageProcessingResult &&
       imageProcessingResult.processed &&
       imageProcessingResult.processed.length > 0
@@ -325,7 +305,7 @@ export async function POST(request: Request) {
       local: localWriteSuccess,
       images: imageProcessingResult,
       message: githubResult
-        ? `${actionText} ${baseMessageDraft}`.trim()
+        ? `${actionText} ${baseMessageImages}`.trim()
         : localWriteSuccess
         ? isSubmit
           ? 'Submitted for review locally (GitHub not configured).'

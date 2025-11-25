@@ -65,7 +65,12 @@ export async function GET(request: Request) {
               : typeof (data as any)?.authors === 'string' && String((data as any).authors)
                 ? [String((data as any).authors)]
                 : []
+
+            // Status coming from editor:
+            // - "draft"           => private, not for admin
+            // - "pending_review"  => submitted to admin
             const status = (data?.status as string) || 'draft'
+
             const createdAt = (data?.createdAt as string) || new Date().toISOString()
             const updatedAt = (data?.updatedAt as string) || createdAt
             const feedback = (data?.feedback as string) || ''
@@ -92,11 +97,17 @@ export async function GET(request: Request) {
         })
     )
 
-    const validDrafts = drafts.filter((d) => d !== null)
+    // 1) Remove nulls
+    const allDrafts = drafts.filter(
+      (d): d is NonNullable<(typeof drafts)[number]> => d !== null
+    )
+
+    // 2) 🔥 Admin sees only "pending_review"
+    const pendingDrafts = allDrafts.filter((d) => d.status === 'pending_review')
 
     return NextResponse.json({
-      drafts: validDrafts,
-      total: validDrafts.length,
+      drafts: pendingDrafts,
+      total: pendingDrafts.length,
     })
   } catch (error) {
     console.error('Error fetching drafts:', error)

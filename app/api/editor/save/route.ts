@@ -8,6 +8,7 @@ type RequestBody = {
   frontmatter: Record<string, unknown>
   body: string
   slug: string
+  mode?: 'draft' | 'submit' // NEW: tells us if this is Save Draft or Submit for Review
 }
 
 function toArrayOrUndefined(value: unknown): string[] | undefined {
@@ -73,7 +74,7 @@ function getRequestAuthor(request: Request): string | null {
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as RequestBody
-    const { frontmatter, body: mdxBody, slug } = body
+    const { frontmatter, body: mdxBody, slug, mode } = body
 
     if (!frontmatter || !frontmatter.title || !frontmatter.date) {
       return NextResponse.json({ error: 'title and date are required' }, { status: 400 })
@@ -90,10 +91,17 @@ export async function POST(request: Request) {
       fm.authors = [actorAuthor]
     }
 
-    // Add draft status and timestamps
-    fm.status = 'draft'
-    fm.createdAt = new Date().toISOString()
-    fm.updatedAt = new Date().toISOString()
+    // Decide draft vs submit
+    const isSubmit = mode === 'submit'
+    const desiredStatus = isSubmit ? 'pending_review' : 'draft'
+
+    // Keep a boolean draft flag for compatibility + a status field
+    fm.draft = !isSubmit
+    ;(fm as any).status = desiredStatus
+
+    // Timestamps
+    ;(fm as any).createdAt = new Date().toISOString()
+    ;(fm as any).updatedAt = new Date().toISOString()
 
     const fmText = serializeFrontmatter(fm)
     const content = `${fmText}\n\n${mdxBody || ''}\n`
@@ -301,6 +309,15 @@ export async function POST(request: Request) {
       console.log('✅ GitHub commit successful - Vercel will auto-deploy')
     }
 
+    const baseMessageDraft =
+      imageProcessingResult &&
+      imageProcessingResult.processed &&
+      imageProcessingResult.processed.length > 0
+        ? `${imageProcessingResult.processed.length} images processed.`
+        : ''
+
+    const actionText = isSubmit ? 'Submitted for review.' : 'Draft saved.'
+
     return NextResponse.json({
       ok: true,
       path: `data/drafts/${filename}`,
@@ -308,14 +325,12 @@ export async function POST(request: Request) {
       local: localWriteSuccess,
       images: imageProcessingResult,
       message: githubResult
-        ? imageProcessingResult &&
-          imageProcessingResult.processed &&
-          imageProcessingResult.processed.length > 0
-          ? `Draft saved successfully! ${imageProcessingResult.processed.length} images processed. Awaiting admin approval.`
-          : 'Draft saved successfully! Awaiting admin approval.'
+        ? `${actionText} ${baseMessageDraft}`.trim()
         : localWriteSuccess
-          ? 'Draft saved locally (GitHub not configured)'
-          : 'Draft saved',
+        ? isSubmit
+          ? 'Submitted for review locally (GitHub not configured).'
+          : 'Draft saved locally (GitHub not configured).'
+        : 'Draft saved',
     })
   } catch (e) {
     console.error(e)

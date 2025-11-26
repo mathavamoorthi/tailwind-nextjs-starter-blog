@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 
 type DraftRow = {
@@ -10,6 +10,7 @@ type DraftRow = {
   status: string
   createdAt: string
   updatedAt: string
+  tags?: string[]
 }
 
 type PublishedRow = {
@@ -18,6 +19,7 @@ type PublishedRow = {
   authors: string[]
   publishedAt: string
   updatedAt: string
+  tags?: string[]
 }
 
 export default function AdminManagePage() {
@@ -27,6 +29,12 @@ export default function AdminManagePage() {
   const [error, setError] = useState<string | null>(null)
   const [workingSlug, setWorkingSlug] = useState<string | null>(null)
   const router = useRouter()
+
+  // --- filters & search ---
+  const [searchQuery, setSearchQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'all' | string>('all')
+  const [authorFilter, setAuthorFilter] = useState<'all' | string>('all')
+  const [tagFilter, setTagFilter] = useState<'all' | string>('all')
 
   // ---- load posts (drafts + published) ----
   const loadPosts = useCallback(async () => {
@@ -89,7 +97,12 @@ export default function AdminManagePage() {
   }
 
   const handleDelete = async (slug: string, kind: 'draft' | 'published') => {
-    if (!confirm(`Delete ${kind} "${slug}"? This cannot be undone.`)) return
+    if (
+      !confirm(
+        `Delete ${kind} "${slug}"?\n\nThis may remove it from drafts and/or published.\nThis cannot be undone.`
+      )
+    )
+      return
 
     try {
       setWorkingSlug(slug)
@@ -150,6 +163,96 @@ export default function AdminManagePage() {
     router.push('/admin/login')
   }
 
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'draft':
+        return 'bg-blue-100 text-blue-800'
+      case 'pending_review':
+        return 'bg-yellow-100 text-yellow-800'
+      case 'rejected':
+        return 'bg-red-100 text-red-800'
+      case 'published':
+        return 'bg-green-100 text-green-800'
+      default:
+        return 'bg-gray-100 text-gray-800'
+    }
+  }
+
+  // ---- derive filter options ----
+  const allStatuses = useMemo(() => {
+    const s = new Set<string>()
+    drafts.forEach((d) => d.status && s.add(d.status))
+    if (published.length > 0) s.add('published')
+    return Array.from(s)
+  }, [drafts, published])
+
+  const allAuthors = useMemo(() => {
+    const s = new Set<string>()
+    drafts.forEach((d) => d.authors?.forEach((a) => s.add(a)))
+    published.forEach((p) => p.authors?.forEach((a) => s.add(a)))
+    return Array.from(s)
+  }, [drafts, published])
+
+  const allTags = useMemo(() => {
+    const s = new Set<string>()
+    drafts.forEach((d) => d.tags?.forEach((t) => s.add(t)))
+    published.forEach((p) => p.tags?.forEach((t) => s.add(t)))
+    return Array.from(s)
+  }, [drafts, published])
+
+  // ---- apply search + filters ----
+  const filteredDrafts = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
+
+    return drafts.filter((d) => {
+      // search in title/slug
+      if (q) {
+        const inTitle = d.title?.toLowerCase().includes(q)
+        const inSlug = d.slug?.toLowerCase().includes(q)
+        if (!inTitle && !inSlug) return false
+      }
+
+      if (statusFilter !== 'all' && d.status !== statusFilter) return false
+
+      if (authorFilter !== 'all') {
+        if (!d.authors || !d.authors.includes(authorFilter)) return false
+      }
+
+      if (tagFilter !== 'all') {
+        const tags = d.tags || []
+        if (!tags.includes(tagFilter)) return false
+      }
+
+      return true
+    })
+  }, [drafts, searchQuery, statusFilter, authorFilter, tagFilter])
+
+  const filteredPublished = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
+
+    return published.filter((p) => {
+      // search in title/slug
+      if (q) {
+        const inTitle = p.title?.toLowerCase().includes(q)
+        const inSlug = p.slug?.toLowerCase().includes(q)
+        if (!inTitle && !inSlug) return false
+      }
+
+      if (statusFilter !== 'all' && statusFilter !== 'published') return false
+
+      if (authorFilter !== 'all') {
+        if (!p.authors || !p.authors.includes(authorFilter)) return false
+      }
+
+      if (tagFilter !== 'all') {
+        const tags = p.tags || []
+        if (!tags.includes(tagFilter)) return false
+      }
+
+      return true
+    })
+  }, [published, searchQuery, statusFilter, authorFilter, tagFilter])
+
   // ---- UI ----
   if (loading) {
     return (
@@ -182,19 +285,118 @@ export default function AdminManagePage() {
     <div className="min-h-screen bg-gray-50">
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="mb-8 flex items-center justify-between">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Manage Posts</h1>
             <p className="mt-2 text-gray-600">
               View and manage all drafts, queued, rejected and published posts.
             </p>
           </div>
-          <button
-            onClick={handleLogout}
-            className="rounded bg-red-600 px-4 py-2 text-white hover:bg-red-700"
-          >
-            Logout
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => router.push('/admin')}
+              className="rounded bg-gray-200 px-4 py-2 text-sm text-gray-800 hover:bg-gray-300"
+            >
+              ← Back to Review Queue
+            </button>
+            <button
+              onClick={handleLogout}
+              className="rounded bg-red-600 px-4 py-2 text-white hover:bg-red-700"
+            >
+              Logout
+            </button>
+          </div>
+        </div>
+
+        {/* Filters */}
+        <div className="mb-8 rounded-lg bg-white p-4 shadow">
+          <div className="grid gap-3 md:grid-cols-4">
+            {/* Search */}
+            <div className="md:col-span-2">
+              <label className="mb-1 block text-xs font-semibold uppercase text-gray-500">
+                Search
+              </label>
+              <input
+                type="text"
+                placeholder="Search by title or slug…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            {/* Status */}
+            <div>
+              <label className="mb-1 block text-xs font-semibold uppercase text-gray-500">
+                Status
+              </label>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">All</option>
+                {allStatuses.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Author */}
+            <div>
+              <label className="mb-1 block text-xs font-semibold uppercase text-gray-500">
+                Author
+              </label>
+              <select
+                value={authorFilter}
+                onChange={(e) => setAuthorFilter(e.target.value)}
+                className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">All</option>
+                {allAuthors.map((a) => (
+                  <option key={a} value={a}>
+                    {a}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Tag + Clear */}
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <div className="w-full max-w-xs">
+              <label className="mb-1 block text-xs font-semibold uppercase text-gray-500">
+                Tag
+              </label>
+              <select
+                value={tagFilter}
+                onChange={(e) => setTagFilter(e.target.value)}
+                className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">All</option>
+                {allTags.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setSearchQuery('')
+                setStatusFilter('all')
+                setAuthorFilter('all')
+                setTagFilter('all')
+              }}
+              className="mt-5 rounded border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-100"
+            >
+              Clear filters
+            </button>
+          </div>
         </div>
 
         {/* Drafts / Queue */}
@@ -202,15 +404,15 @@ export default function AdminManagePage() {
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-xl font-semibold text-gray-900">Drafts & Review Queue</h2>
             <span className="text-xs text-gray-500">
-              {drafts.length} item{drafts.length === 1 ? '' : 's'}
+              {filteredDrafts.length} item{filteredDrafts.length === 1 ? '' : 's'}
             </span>
           </div>
 
-          {drafts.length === 0 ? (
-            <p className="text-sm text-gray-500">No drafts or queued posts.</p>
+          {filteredDrafts.length === 0 ? (
+            <p className="text-sm text-gray-500">No drafts or queued posts match filters.</p>
           ) : (
             <div className="space-y-3">
-              {drafts.map((d) => (
+              {filteredDrafts.map((d) => (
                 <div
                   key={d.slug}
                   className="flex flex-col gap-2 rounded border border-gray-200 p-3 md:flex-row md:items-center md:justify-between"
@@ -218,14 +420,31 @@ export default function AdminManagePage() {
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-medium text-gray-900">{d.title}</span>
-                      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs capitalize text-gray-700">
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs capitalize ${getStatusColor(d.status)}`}
+                      >
                         {d.status}
                       </span>
+                    </div>
+                    <div className="mt-1 text-xs text-gray-500">
+                      <span className="font-mono text-[11px] text-gray-600">/{d.slug}</span>
                     </div>
                     <div className="mt-1 text-xs text-gray-500">
                       {d.authors.length > 0 && <>By {d.authors.join(', ')} · </>}
                       {formatDate(d.updatedAt || d.createdAt)}
                     </div>
+                    {d.tags && d.tags.length > 0 && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {d.tags.map((tag) => (
+                          <span
+                            key={tag}
+                            className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-700"
+                          >
+                            #{tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div className="flex gap-2">
                     <button
@@ -255,15 +474,15 @@ export default function AdminManagePage() {
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-xl font-semibold text-gray-900">Published Posts</h2>
             <span className="text-xs text-gray-500">
-              {published.length} post{published.length === 1 ? '' : 's'}
+              {filteredPublished.length} post{filteredPublished.length === 1 ? '' : 's'}
             </span>
           </div>
 
-          {published.length === 0 ? (
-            <p className="text-sm text-gray-500">No published posts yet.</p>
+          {filteredPublished.length === 0 ? (
+            <p className="text-sm text-gray-500">No published posts match filters.</p>
           ) : (
             <div className="space-y-3">
-              {published.map((p) => (
+              {filteredPublished.map((p) => (
                 <div
                   key={p.slug}
                   className="flex flex-col gap-2 rounded border border-gray-200 p-3 md:flex-row md:items-center md:justify-between"
@@ -271,14 +490,31 @@ export default function AdminManagePage() {
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-medium text-gray-900">{p.title}</span>
-                      <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-800">
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs ${getStatusColor('published')}`}
+                      >
                         published
                       </span>
+                    </div>
+                    <div className="mt-1 text-xs text-gray-500">
+                      <span className="font-mono text-[11px] text-gray-600">/{p.slug}</span>
                     </div>
                     <div className="mt-1 text-xs text-gray-500">
                       {p.authors.length > 0 && <>By {p.authors.join(', ')} · </>}
                       {p.publishedAt && formatDate(p.publishedAt)}
                     </div>
+                    {p.tags && p.tags.length > 0 && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {p.tags.map((tag) => (
+                          <span
+                            key={tag}
+                            className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-700"
+                          >
+                            #{tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div className="flex gap-2">
                     <button

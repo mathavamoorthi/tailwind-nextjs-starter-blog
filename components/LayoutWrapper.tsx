@@ -15,10 +15,18 @@ const inter = Inter({
 const LayoutWrapper = ({ children }: Props) => {
   return (
     <SectionContainer>
-      <div className={`${inter.className} flex h-screen flex-col justify-between font-sans`}>
+      <div className={`${inter.className} min-h-screen flex flex-col font-sans`}>
         <Header />
-        <main className="mb-auto">{children}</main>
-        <Footer />
+
+        {/* Main grows to fill remaining space */}
+        <main className="flex-1">
+          {children}
+        </main>
+
+        {/* Footer always stays at bottom */}
+        <footer className="mt-auto">
+          <Footer />
+        </footer>
       </div>
     </SectionContainer>
   )

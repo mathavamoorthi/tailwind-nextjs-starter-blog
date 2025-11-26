@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import path from 'path'
 import fs from 'fs/promises'
+import { GitHubAPI } from '../../../../lib/github'
+import { revalidatePath } from 'next/cache'
 
 // Force Node runtime (needed for fs)
 export const runtime = 'nodejs'
@@ -25,6 +27,21 @@ function isAdmin(request: Request): boolean {
   return false
 }
 
+async function deleteLocalFile(filePath: string): Promise<boolean> {
+  try {
+    await fs.unlink(filePath)
+    console.log(`Deleted local file: ${filePath}`)
+    return true
+  } catch (err: any) {
+    if (err && err.code === 'ENOENT') {
+      // file not found – not an error, just means nothing to delete here
+      return false
+    }
+    console.error(`Error unlinking local file ${filePath}:`, err)
+    throw err
+  }
+}
+
 // POST /api/admin/delete
 export async function POST(request: Request) {
   try {
@@ -47,37 +64,90 @@ export async function POST(request: Request) {
       )
     }
 
-    // 3) Build file path: data/drafts/<slug>.mdx
-    const draftsDir = path.join(process.cwd(), 'data', 'drafts')
-    const filePath = path.join(draftsDir, `${slug}.mdx`)
-
-    // 4) Try to delete the file
-    try {
-      await fs.unlink(filePath)
-    } catch (err: any) {
-      // If file is not found
-      if (err && err.code === 'ENOENT') {
-        return NextResponse.json(
-          { success: false, error: 'Draft not found' },
-          { status: 404 }
-        )
-      }
-
-      console.error('Error unlinking draft:', err)
+    if (/[^a-z0-9-]/.test(slug)) {
       return NextResponse.json(
-        { success: false, error: 'Failed to delete draft file' },
-        { status: 500 }
+        { success: false, error: 'Invalid slug' },
+        { status: 400 }
       )
     }
 
-    console.log(`Deleted draft: ${slug}.mdx`)
+    // 3) Build file paths
+    const draftsDir = path.join(process.cwd(), 'data', 'drafts')
+    const blogDir = path.join(process.cwd(), 'data', 'blog')
+    const draftPath = path.join(draftsDir, `${slug}.mdx`)
+    const blogPath = path.join(blogDir, `${slug}.mdx`)
 
-    // 5) Success
+    let deletedSomething = false
+
+    // 4) Try to delete local files (dev / preview)
+    try {
+      const deletedDraft = await deleteLocalFile(draftPath)
+      const deletedBlog = await deleteLocalFile(blogPath)
+      if (deletedDraft || deletedBlog) {
+        deletedSomething = true
+      }
+    } catch (err) {
+      // local delete errors are logged in helper; don't abort yet,
+      // GitHub delete may still work in production
+      console.error('Local delete error (continuing to GitHub):', err)
+    }
+
+    // 5) Try to delete from GitHub repo (production)
+    if (process.env.GITHUB_TOKEN && process.env.GITHUB_OWNER && process.env.GITHUB_REPO) {
+      try {
+        const github = new GitHubAPI(
+          process.env.GITHUB_TOKEN,
+          process.env.GITHUB_OWNER,
+          process.env.GITHUB_REPO
+        )
+
+        // Try drafts path
+        try {
+          await github.deleteFile(`data/drafts/${slug}.mdx`, `Delete draft: ${slug}`)
+          console.log(`Deleted draft from GitHub: data/drafts/${slug}.mdx`)
+          deletedSomething = true
+        } catch (e) {
+          console.warn('GitHub draft delete failed (maybe not present):', e)
+        }
+
+        // Try blog path
+        try {
+          await github.deleteFile(`data/blog/${slug}.mdx`, `Delete post: ${slug}`)
+          console.log(`Deleted blog post from GitHub: data/blog/${slug}.mdx`)
+          deletedSomething = true
+        } catch (e) {
+          console.warn('GitHub blog delete failed (maybe not present):', e)
+        }
+      } catch (err) {
+        console.error('GitHub delete error:', err)
+        // don’t fail immediately; we’ll check deletedSomething below
+      }
+    }
+
+    if (!deletedSomething) {
+      return NextResponse.json(
+        { success: false, error: 'No matching draft or published post found to delete' },
+        { status: 404 }
+      )
+    }
+
+    // 6) Revalidate blog pages so the deleted post disappears from listings
+    try {
+      revalidatePath('/blog')
+      revalidatePath('/blog/[page]', 'page')
+      revalidatePath('/tags')
+      revalidatePath('/tags/[tag]', 'page')
+      revalidatePath('/tags/[tag]/page/[page]', 'page')
+    } catch (e) {
+      console.error('Revalidation error after delete:', e)
+    }
+
+    // 7) Success
     return NextResponse.json({ success: true })
   } catch (err) {
     console.error('Error in /api/admin/delete:', err)
     return NextResponse.json(
-      { success: false, error: 'Failed to delete draft' },
+      { success: false, error: 'Failed to delete draft file' },
       { status: 500 }
     )
   }

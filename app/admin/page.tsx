@@ -34,7 +34,6 @@ export default function AdminDashboard() {
   const [previewPost, setPreviewPost] = useState<PreviewPost | null>(null)
   const [previewLoadingSlug, setPreviewLoadingSlug] = useState<string | null>(null)
   const [previewSlug, setPreviewSlug] = useState<string | null>(null)
-  const [deleteProcessing, setDeleteProcessing] = useState<string | null>(null)
   const router = useRouter()
 
   // fetchDrafts wrapped in useCallback so it can safely be used in useEffect deps
@@ -125,6 +124,7 @@ export default function AdminDashboard() {
       const result = await response.json()
 
       if (result.success) {
+        // Remove the reviewed draft from list
         setDrafts((prev) => prev.filter((d) => d.slug !== slug))
         setFeedback((prev) => {
           const newFeedback = { ...prev }
@@ -142,7 +142,7 @@ export default function AdminDashboard() {
     }
   }
 
-  // --- Preview (now returns full post meta + html) ---
+  // --- Preview (returns full post meta + html) ---
   const handlePreview = async (slug: string) => {
     setPreviewPost(null)
     setPreviewSlug(slug)
@@ -186,57 +186,10 @@ export default function AdminDashboard() {
     }
   }
 
-  // --- Edit: open editor with this draft loaded ---
+  // --- Edit from preview modal (keep this) ---
   const handleEdit = (slug: string) => {
     localStorage.setItem('ADMIN_EDITOR_LOAD', slug)
     router.push(`/editor`)
-  }
-
-  // --- Delete ---
-  const handleDelete = async (slug: string) => {
-    if (!confirm(`Delete draft "${slug}"? This cannot be undone.`)) return
-
-    setDeleteProcessing(slug)
-    try {
-      const username = localStorage.getItem('admin_username')
-      const password = localStorage.getItem('admin_password')
-
-      if (!username || !password) {
-        router.push('/admin/login')
-        return
-      }
-
-      const res = await fetch('/api/admin/delete', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Basic ${btoa(`${username}:${password}`)}`,
-        },
-        body: JSON.stringify({ slug }),
-      })
-
-      if (!res.ok) {
-        if (res.status === 401) {
-          localStorage.removeItem('admin_username')
-          localStorage.removeItem('admin_password')
-          router.push('/admin/login')
-          return
-        }
-        throw new Error('Failed to delete draft')
-      }
-
-      const data = await res.json()
-      if (data.success) {
-        setDrafts((prev) => prev.filter((d) => d.slug !== slug))
-        alert('Draft deleted')
-      } else {
-        throw new Error(data?.error || 'Delete failed')
-      }
-    } catch (err) {
-      alert(`Delete error: ${err instanceof Error ? err.message : 'Failed to delete'}`)
-    } finally {
-      setDeleteProcessing(null)
-    }
   }
 
   const handleLogout = () => {
@@ -269,10 +222,15 @@ export default function AdminDashboard() {
         return 'bg-blue-100 text-blue-800'
       case 'rejected':
         return 'bg-red-100 text-red-800'
+      case 'pending_review':
+        return 'bg-gray-100 text-gray-800'
       default:
         return 'bg-gray-100 text-gray-800'
     }
   }
+
+  // Only show pending_review posts on this dashboard
+  const pendingDrafts = drafts.filter((d) => d.status === 'pending_review')
 
   if (loading) {
     return (
@@ -308,7 +266,7 @@ export default function AdminDashboard() {
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
             <p className="mt-2 text-gray-600">
-              Review and approve draft posts ({drafts.length} pending)
+              Review and approve draft posts ({pendingDrafts.length} pending)
             </p>
           </div>
           <button
@@ -319,7 +277,7 @@ export default function AdminDashboard() {
           </button>
         </div>
 
-        {drafts.length === 0 ? (
+        {pendingDrafts.length === 0 ? (
           <div className="py-12 text-center">
             <div className="mb-4 text-6xl text-gray-400">📝</div>
             <h3 className="mb-2 text-lg font-medium text-gray-900">No drafts to review</h3>
@@ -329,7 +287,7 @@ export default function AdminDashboard() {
           </div>
         ) : (
           <div className="space-y-6">
-            {drafts.map((draft) => (
+            {pendingDrafts.map((draft) => (
               <div key={draft.slug} className="rounded-lg bg-white p-6 shadow">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
@@ -352,14 +310,6 @@ export default function AdminDashboard() {
                     </p>
 
                     <p className="mb-4 text-gray-700">{draft.excerpt}</p>
-
-                    {draft.status === 'rejected' && (
-                      <div className="mb-4 rounded border border-red-200 bg-red-50 p-3">
-                        <p className="text-sm text-red-800">
-                          <strong>Rejected:</strong> {draft.feedback || 'No feedback provided'}
-                        </p>
-                      </div>
-                    )}
 
                     <div className="flex flex-wrap items-center gap-2">
                       <button
@@ -386,21 +336,6 @@ export default function AdminDashboard() {
                         {previewLoadingSlug === draft.slug ? 'Loading...' : 'Preview'}
                       </button>
 
-                      <button
-                        onClick={() => handleEdit(draft.slug)}
-                        className="rounded bg-yellow-500 px-3 py-2 text-sm text-white hover:bg-yellow-600"
-                      >
-                        Edit
-                      </button>
-
-                      <button
-                        onClick={() => handleDelete(draft.slug)}
-                        disabled={deleteProcessing === draft.slug}
-                        className="rounded bg-gray-300 px-3 py-2 text-sm text-gray-800 hover:bg-gray-400"
-                      >
-                        {deleteProcessing === draft.slug ? 'Deleting...' : 'Delete'}
-                      </button>
-
                       <input
                         type="text"
                         placeholder="Rejection feedback (optional)"
@@ -419,7 +354,7 @@ export default function AdminDashboard() {
         )}
       </div>
 
-      {/* Preview modal – tries to mimic real blog layout */}
+      {/* Preview modal – still lets you "Edit in Editor" */}
       {previewPost && (
         <div className="bg-opacity-50 fixed inset-0 z-50 flex items-center justify-center bg-black">
           <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-lg bg-white p-6 shadow-lg dark:bg-gray-900">

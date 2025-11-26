@@ -54,13 +54,14 @@ export default function MDXEditorPage() {
   const [dirty, setDirty] = useState<boolean>(false)
   const [loadingExisting, setLoadingExisting] = useState<boolean>(false)
   const [existingPosts, setExistingPosts] = useState<{ title: string; slug: string }[]>([])
+  const [draftPosts, setDraftPosts] = useState<{ title: string; slug: string; status: string }[]>([])
   const [githubStatus, setGitHubStatus] = useState<{
     configured: boolean
     owner: string | null
     repo: string | null
   } | null>(null)
 
-  // NEW: track current status + rejection feedback from admin
+  // NEW: track status + rejection feedback from frontmatter
   const [status, setStatus] = useState<string | null>(null)
   const [rejectionFeedback, setRejectionFeedback] = useState<string | null>(null)
 
@@ -70,19 +71,19 @@ export default function MDXEditorPage() {
     setFrontmatter((prev) => ({ ...prev, [key]: value }))
   }
 
-  // Generic save function that supports both draft + submit
+  // Generic save function that supports both draft + submit (+ autosave)
   const savePost = useCallback(
     async (mode: 'draft' | 'submit', options?: { autosave?: boolean }) => {
       const autosave = options?.autosave === true
 
-      // Don’t spam multiple saves at once
-      if (saving || autoSaving) return
+      // For autosave, don't start if something else is in-flight
+      if (autosave && (saving || autoSaving)) return
 
-      if (!autosave) {
+      if (autosave) {
+        setAutoSaving(true)
+      } else {
         setSaving(true)
         setMessage('')
-      } else {
-        setAutoSaving(true)
       }
 
       try {
@@ -91,7 +92,6 @@ export default function MDXEditorPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ frontmatter, body, slug, mode }),
         })
-
         if (!res.ok) {
           const data = await res.json().catch(() => ({}))
           throw new Error(data?.error || 'Failed to save')
@@ -101,7 +101,7 @@ export default function MDXEditorPage() {
         // Update local status based on action
         if (mode === 'submit') {
           setStatus('pending_review')
-          setRejectionFeedback(null) // feedback has been addressed
+          setRejectionFeedback(null) // feedback handled
         } else {
           setStatus('draft')
         }
@@ -113,7 +113,6 @@ export default function MDXEditorPage() {
             new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
           )
         } else {
-          // Manual save / submit messages
           if (typeof data.message === 'string' && data.message.length > 0) {
             setMessage(`✅ ${data.message}`)
           } else {
@@ -126,14 +125,15 @@ export default function MDXEditorPage() {
         }
       } catch (err) {
         const error = err as Error
-        if (!autosave) setMessage(error.message)
-        else setMessage((prev) => prev || error.message)
-      } finally {
         if (autosave) {
-          setAutoSaving(false)
+          // don't spam, only show if there was no message
+          setMessage((prev) => prev || error.message)
         } else {
-          setSaving(false)
+          setMessage(error.message)
         }
+      } finally {
+        if (autosave) setAutoSaving(false)
+        else setSaving(false)
       }
     },
     [frontmatter, body, slug, saving, autoSaving]
@@ -145,7 +145,7 @@ export default function MDXEditorPage() {
     await savePost('draft')
   }
 
-  // Secondary button click = "Submit for review"
+  // Secondary button click = "Submit for review" (also used after rejection)
   const handleSubmitForReview = async () => {
     await savePost('submit')
   }
@@ -187,7 +187,7 @@ export default function MDXEditorPage() {
     }
   }, [body])
 
-  // Load existing posts for quick editing
+  // Load existing posts for quick editing (published/approved blog posts)
   useEffect(() => {
     let cancelled = false
     async function fetchPosts() {
@@ -202,6 +202,27 @@ export default function MDXEditorPage() {
       }
     }
     fetchPosts()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Load drafts for this editor
+  useEffect(() => {
+    let cancelled = false
+    async function fetchDrafts() {
+      try {
+        const res = await fetch('/api/editor/drafts')
+        if (!res.ok) return
+        const data = (await res.json()) as {
+          posts: { title: string; slug: string; status: string }[]
+        }
+        if (!cancelled) setDraftPosts(data.posts || [])
+      } catch (e) {
+        console.error('Failed to load drafts', e)
+      }
+    }
+    fetchDrafts()
     return () => {
       cancelled = true
     }
@@ -261,7 +282,7 @@ export default function MDXEditorPage() {
       images: joinIfArray(fm.images) || prev.images,
     }))
 
-    // NEW: pull status + feedback for UI
+    // NEW: pick up status + feedback from frontmatter
     setStatus(typeof (fm as any).status === 'string' ? String((fm as any).status) : null)
     setRejectionFeedback(
       typeof (fm as any).feedback === 'string' ? String((fm as any).feedback) : null
@@ -272,14 +293,18 @@ export default function MDXEditorPage() {
     setLastAutoSave(null)
   }
 
-  // Load specific post when admin sets ADMIN_EDITOR_LOAD
+  // ---- Load specific post when admin sets ADMIN_EDITOR_LOAD ----
   useEffect(() => {
     const slugToLoad = localStorage.getItem('ADMIN_EDITOR_LOAD')
     if (!slugToLoad) return
 
+    // single-use: remove the key so it won't auto-load again
     localStorage.removeItem('ADMIN_EDITOR_LOAD')
+
+    // call the existing loadPost function to populate editor
     loadPost(slugToLoad)
   }, [])
+  // ---- END ----
 
   async function uploadImage(file: File): Promise<string> {
     const form = new FormData()
@@ -297,11 +322,12 @@ export default function MDXEditorPage() {
       filename?: string
     }
 
+    // Show upload status message
     if (data.message) {
       setMessage(data.message)
     }
 
-    return data.url
+    return data.url // This will be the Vercel Blob CDN URL
   }
 
   function insertAtCursor(text: string) {
@@ -316,6 +342,7 @@ export default function MDXEditorPage() {
     const after = textarea.value.substring(end)
     const next = `${before}${text}${after}`
     setBody(next)
+    // Restore caret after inserted text
     requestAnimationFrame(() => {
       const pos = start + text.length
       textarea.selectionStart = textarea.selectionEnd = pos
@@ -347,19 +374,16 @@ export default function MDXEditorPage() {
     }
   }
 
-  // NEW: Autosave every 30s while there are unsaved changes
+  // NEW: autosave every 30s while dirty
   useEffect(() => {
     const interval = setInterval(() => {
-      // Only autosave when:
-      //  - there are unsaved changes
-      //  - not already saving
-      //  - we have at least a title or some body content
       if (!dirty) return
       if (saving || autoSaving) return
       if (!frontmatter.title && !body.trim()) return
 
+      // fire and forget
       void savePost('draft', { autosave: true })
-    }, 30000) // 30 seconds
+    }, 30000)
 
     return () => clearInterval(interval)
   }, [dirty, saving, autoSaving, frontmatter.title, body, savePost])
@@ -419,7 +443,7 @@ export default function MDXEditorPage() {
         </div>
       )}
 
-      {/* NEW: Rejection banner */}
+      {/* NEW: Rejection banner if this post was rejected */}
       {status === 'rejected' && (
         <div className="mb-4 rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-800">
           <p className="mb-1 font-semibold">This post was rejected by an admin.</p>
@@ -432,13 +456,35 @@ export default function MDXEditorPage() {
             <p>No specific feedback message was provided.</p>
           )}
           <p className="mt-2 text-xs text-red-700">
-            Make changes based on this feedback, then click <strong>“Submit for review”</strong> to
-            resubmit your post.
+            Update your post based on this feedback, then click{' '}
+            <strong>“Submit for review”</strong> to resubmit it.
           </p>
         </div>
       )}
 
       <form onSubmit={handleSaveDraft} className="space-y-6">
+        {/* Your drafts */}
+        <div className="rounded border border-gray-300 p-3 dark:bg-gray-900">
+          <div className="mb-2 text-sm font-medium">Your drafts</div>
+          <div className="flex gap-2">
+            <select
+              className="w-full rounded border border-gray-300 p-2 dark:bg-gray-950"
+              onChange={(e) => e.target.value && loadPost(e.target.value)}
+              defaultValue=""
+            >
+              <option value="" disabled>
+                {draftPosts.length ? 'Select a draft' : 'No drafts yet'}
+              </option>
+              {draftPosts.map((p) => (
+                <option key={p.slug} value={p.slug}>
+                  {p.title} {p.status === 'pending_review' ? '(submitted)' : '(draft)'}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Existing published posts */}
         <div className="rounded border border-gray-300 p-3 dark:bg-gray-900">
           <div className="mb-2 text-sm font-medium">Edit existing post</div>
           <div className="flex gap-2">
@@ -463,6 +509,7 @@ export default function MDXEditorPage() {
             </select>
           </div>
         </div>
+
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <label className="flex flex-col">
             <span className="mb-1 text-sm font-medium">Title *</span>
@@ -598,7 +645,7 @@ export default function MDXEditorPage() {
             {saving ? 'Saving…' : autoSaving ? 'Autosaving…' : 'Save Draft'}
           </button>
 
-          {/* Submit for review */}
+          {/* Submit for review / resubmit */}
           <button
             type="button"
             disabled={saving || autoSaving}
@@ -613,9 +660,7 @@ export default function MDXEditorPage() {
           )}
 
           {lastAutoSave && (
-            <span className="text-xs text-gray-500">
-              Autosaved at {lastAutoSave}
-            </span>
+            <span className="text-xs text-gray-500">Autosaved at {lastAutoSave}</span>
           )}
         </div>
       </form>

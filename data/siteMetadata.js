@@ -3,7 +3,7 @@ const siteMetadata = {
   title: 'Next.js Starter Blog',
   author: 'Spideyy',
   headerTitle: 'NOVA Blogs',
-  description: 'A blog created with Next.js and Tailwind.css',
+  description: 'Writings of NOVA',
   language: 'en-us',
   theme: 'system', // system, dark or light
   siteUrl: 'https://tailwind-nextjs-starter-blog.vercel.app',

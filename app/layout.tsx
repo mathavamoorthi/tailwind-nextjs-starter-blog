@@ -96,28 +96,20 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#000" />
       <link rel="alternate" type="application/rss+xml" href={`${basePath}/feed.xml`} />
 
-      {/* 👇 FIXED LAYOUT HERE */}
-      <body className="bg-white text-black antialiased dark:bg-gray-950 dark:text-white 
-                       pl-[calc(100vw-100%)] 
-                       min-h-screen flex flex-col">
+      <body className="bg-white pl-[calc(100vw-100%)] text-black antialiased dark:bg-gray-950 dark:text-white">
         <ThemeProviders>
           <Analytics analyticsConfig={siteMetadata.analytics as AnalyticsConfig} />
 
-          {/* HEADER */}
-          <Header />
-
-          {/* MAIN CONTENT WITH FLEX-1 TO PUSH FOOTER DOWN */}
-          <main className="flex-1">
+          {/* 👇 Wrapper div makes footer sticky but keeps SectionContainer layout */}
+          <div className="min-h-screen flex flex-col">
             <SectionContainer>
+              <Header />
               <SearchProvider searchConfig={siteMetadata.search as SearchConfig}>
-                {children}
+                <main className="mb-auto">{children}</main>
               </SearchProvider>
+              <Footer />
             </SectionContainer>
-          </main>
-
-          {/* FOOTER ALWAYS AT BOTTOM */}
-          <Footer />
-
+          </div>
         </ThemeProviders>
       </body>
     </html>

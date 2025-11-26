@@ -67,6 +67,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       className={`${space_grotesk.variable} scroll-smooth`}
       suppressHydrationWarning
     >
+      {/* Favicons */}
       <link
         rel="apple-touch-icon"
         sizes="76x76"
@@ -94,16 +95,29 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <meta name="theme-color" media="(prefers-color-scheme: light)" content="#fff" />
       <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#000" />
       <link rel="alternate" type="application/rss+xml" href={`${basePath}/feed.xml`} />
-      <body className="bg-white pl-[calc(100vw-100%)] text-black antialiased dark:bg-gray-950 dark:text-white">
+
+      {/* 👇 FIXED LAYOUT HERE */}
+      <body className="bg-white text-black antialiased dark:bg-gray-950 dark:text-white 
+                       pl-[calc(100vw-100%)] 
+                       min-h-screen flex flex-col">
         <ThemeProviders>
           <Analytics analyticsConfig={siteMetadata.analytics as AnalyticsConfig} />
-          <SectionContainer>
-            <SearchProvider searchConfig={siteMetadata.search as SearchConfig}>
-              <Header />
-              <main className="mb-auto">{children}</main>
-            </SearchProvider>
-            <Footer />
-          </SectionContainer>
+
+          {/* HEADER */}
+          <Header />
+
+          {/* MAIN CONTENT WITH FLEX-1 TO PUSH FOOTER DOWN */}
+          <main className="flex-1">
+            <SectionContainer>
+              <SearchProvider searchConfig={siteMetadata.search as SearchConfig}>
+                {children}
+              </SearchProvider>
+            </SectionContainer>
+          </main>
+
+          {/* FOOTER ALWAYS AT BOTTOM */}
+          <Footer />
+
         </ThemeProviders>
       </body>
     </html>

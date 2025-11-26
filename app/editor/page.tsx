@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { unified } from 'unified'
 import remarkParse from 'remark-parse'
 import remarkGfm from 'remark-gfm'
@@ -46,18 +46,23 @@ export default function MDXEditorPage() {
   })
   const [body, setBody] = useState<string>('')
   const [saving, setSaving] = useState<boolean>(false)
+  const [autoSaving, setAutoSaving] = useState<boolean>(false)
   const [message, setMessage] = useState<string>('')
+  const [lastAutoSave, setLastAutoSave] = useState<string | null>(null)
   const bodyRef = useRef<HTMLTextAreaElement | null>(null)
   const [previewHtml, setPreviewHtml] = useState<string>('')
   const [dirty, setDirty] = useState<boolean>(false)
   const [loadingExisting, setLoadingExisting] = useState<boolean>(false)
   const [existingPosts, setExistingPosts] = useState<{ title: string; slug: string }[]>([])
-  const [draftPosts, setDraftPosts] = useState<{ title: string; slug: string; status: string }[]>([])
   const [githubStatus, setGitHubStatus] = useState<{
     configured: boolean
     owner: string | null
     repo: string | null
   } | null>(null)
+
+  // NEW: track current status + rejection feedback from admin
+  const [status, setStatus] = useState<string | null>(null)
+  const [rejectionFeedback, setRejectionFeedback] = useState<string | null>(null)
 
   const slug = useMemo(() => slugify(frontmatter.title || 'untitled'), [frontmatter.title])
 
@@ -66,39 +71,73 @@ export default function MDXEditorPage() {
   }
 
   // Generic save function that supports both draft + submit
-  async function savePost(mode: 'draft' | 'submit') {
-    setSaving(true)
-    setMessage('')
-    try {
-      const res = await fetch('/api/editor/save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ frontmatter, body, slug, mode }), // send mode
-      })
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        throw new Error(data?.error || 'Failed to save')
-      }
-      const data = await res.json()
+  const savePost = useCallback(
+    async (mode: 'draft' | 'submit', options?: { autosave?: boolean }) => {
+      const autosave = options?.autosave === true
 
-      if (typeof data.message === 'string' && data.message.length > 0) {
-        setMessage(`✅ ${data.message}`)
+      // Don’t spam multiple saves at once
+      if (saving || autoSaving) return
+
+      if (!autosave) {
+        setSaving(true)
+        setMessage('')
       } else {
+        setAutoSaving(true)
+      }
+
+      try {
+        const res = await fetch('/api/editor/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ frontmatter, body, slug, mode }),
+        })
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}))
+          throw new Error(data?.error || 'Failed to save')
+        }
+        const data = await res.json()
+
+        // Update local status based on action
         if (mode === 'submit') {
-          setMessage(`✅ Submitted for review: ${data.path}`)
+          setStatus('pending_review')
+          setRejectionFeedback(null) // feedback has been addressed
         } else {
-          setMessage(`✅ Draft saved: ${data.path}`)
+          setStatus('draft')
+        }
+
+        setDirty(false)
+
+        if (autosave) {
+          setLastAutoSave(
+            new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+          )
+        } else {
+          // Manual save / submit messages
+          if (typeof data.message === 'string' && data.message.length > 0) {
+            setMessage(`✅ ${data.message}`)
+          } else {
+            if (mode === 'submit') {
+              setMessage(`✅ Submitted for review: ${data.path}`)
+            } else {
+              setMessage(`✅ Draft saved: ${data.path}`)
+            }
+          }
+        }
+      } catch (err) {
+        const error = err as Error
+        if (!autosave) setMessage(error.message)
+        else setMessage((prev) => prev || error.message)
+      } finally {
+        if (autosave) {
+          setAutoSaving(false)
+        } else {
+          setSaving(false)
         }
       }
-
-      setDirty(false)
-    } catch (err) {
-      const error = err as Error
-      setMessage(error.message)
-    } finally {
-      setSaving(false)
-    }
-  }
+    },
+    [frontmatter, body, slug, saving, autoSaving]
+  )
 
   // Form submit = "Save draft"
   const handleSaveDraft = async (e: React.FormEvent) => {
@@ -148,7 +187,7 @@ export default function MDXEditorPage() {
     }
   }, [body])
 
-  // Load existing posts for quick editing (published/approved blog posts)
+  // Load existing posts for quick editing
   useEffect(() => {
     let cancelled = false
     async function fetchPosts() {
@@ -163,27 +202,6 @@ export default function MDXEditorPage() {
       }
     }
     fetchPosts()
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  // Load drafts for this editor
-  useEffect(() => {
-    let cancelled = false
-    async function fetchDrafts() {
-      try {
-        const res = await fetch('/api/editor/drafts')
-        if (!res.ok) return
-        const data = (await res.json()) as {
-          posts: { title: string; slug: string; status: string }[]
-        }
-        if (!cancelled) setDraftPosts(data.posts || [])
-      } catch (e) {
-        console.error('Failed to load drafts', e)
-      }
-    }
-    fetchDrafts()
     return () => {
       cancelled = true
     }
@@ -243,21 +261,25 @@ export default function MDXEditorPage() {
       images: joinIfArray(fm.images) || prev.images,
     }))
 
+    // NEW: pull status + feedback for UI
+    setStatus(typeof (fm as any).status === 'string' ? String((fm as any).status) : null)
+    setRejectionFeedback(
+      typeof (fm as any).feedback === 'string' ? String((fm as any).feedback) : null
+    )
+
     setBody(data.body || '')
+    setDirty(false)
+    setLastAutoSave(null)
   }
 
-  // ---- Load specific post when admin sets ADMIN_EDITOR_LOAD ----
+  // Load specific post when admin sets ADMIN_EDITOR_LOAD
   useEffect(() => {
     const slugToLoad = localStorage.getItem('ADMIN_EDITOR_LOAD')
     if (!slugToLoad) return
 
-    // single-use: remove the key so it won't auto-load again
     localStorage.removeItem('ADMIN_EDITOR_LOAD')
-
-    // call the existing loadPost function to populate editor
     loadPost(slugToLoad)
   }, [])
-  // ---- END ----
 
   async function uploadImage(file: File): Promise<string> {
     const form = new FormData()
@@ -275,12 +297,11 @@ export default function MDXEditorPage() {
       filename?: string
     }
 
-    // Show upload status message
     if (data.message) {
       setMessage(data.message)
     }
 
-    return data.url // This will be the Vercel Blob CDN URL
+    return data.url
   }
 
   function insertAtCursor(text: string) {
@@ -295,7 +316,6 @@ export default function MDXEditorPage() {
     const after = textarea.value.substring(end)
     const next = `${before}${text}${after}`
     setBody(next)
-    // Restore caret after inserted text
     requestAnimationFrame(() => {
       const pos = start + text.length
       textarea.selectionStart = textarea.selectionEnd = pos
@@ -326,6 +346,23 @@ export default function MDXEditorPage() {
       setMessage(error.message)
     }
   }
+
+  // NEW: Autosave every 30s while there are unsaved changes
+  useEffect(() => {
+    const interval = setInterval(() => {
+      // Only autosave when:
+      //  - there are unsaved changes
+      //  - not already saving
+      //  - we have at least a title or some body content
+      if (!dirty) return
+      if (saving || autoSaving) return
+      if (!frontmatter.title && !body.trim()) return
+
+      void savePost('draft', { autosave: true })
+    }, 30000) // 30 seconds
+
+    return () => clearInterval(interval)
+  }, [dirty, saving, autoSaving, frontmatter.title, body, savePost])
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
@@ -382,29 +419,26 @@ export default function MDXEditorPage() {
         </div>
       )}
 
-      <form onSubmit={handleSaveDraft} className="space-y-6">
-        {/* Your drafts */}
-        <div className="rounded border border-gray-300 p-3 dark:bg-gray-900">
-          <div className="mb-2 text-sm font-medium">Your drafts</div>
-          <div className="flex gap-2">
-            <select
-              className="w-full rounded border border-gray-300 p-2 dark:bg-gray-950"
-              onChange={(e) => e.target.value && loadPost(e.target.value)}
-              defaultValue=""
-            >
-              <option value="" disabled>
-                {draftPosts.length ? 'Select a draft' : 'No drafts yet'}
-              </option>
-              {draftPosts.map((p) => (
-                <option key={p.slug} value={p.slug}>
-                  {p.title} {p.status === 'pending_review' ? '(submitted)' : '(draft)'}
-                </option>
-              ))}
-            </select>
-          </div>
+      {/* NEW: Rejection banner */}
+      {status === 'rejected' && (
+        <div className="mb-4 rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-800">
+          <p className="mb-1 font-semibold">This post was rejected by an admin.</p>
+          {rejectionFeedback ? (
+            <p>
+              <span className="font-semibold">Feedback: </span>
+              {rejectionFeedback}
+            </p>
+          ) : (
+            <p>No specific feedback message was provided.</p>
+          )}
+          <p className="mt-2 text-xs text-red-700">
+            Make changes based on this feedback, then click <strong>“Submit for review”</strong> to
+            resubmit your post.
+          </p>
         </div>
+      )}
 
-        {/* Existing published posts */}
+      <form onSubmit={handleSaveDraft} className="space-y-6">
         <div className="rounded border border-gray-300 p-3 dark:bg-gray-900">
           <div className="mb-2 text-sm font-medium">Edit existing post</div>
           <div className="flex gap-2">
@@ -418,8 +452,8 @@ export default function MDXEditorPage() {
                 {loadingExisting
                   ? 'Loading…'
                   : existingPosts.length
-                    ? 'Select a post'
-                    : 'No posts found'}
+                  ? 'Select a post'
+                  : 'No posts found'}
               </option>
               {existingPosts.map((p) => (
                 <option key={p.slug} value={p.slug}>
@@ -429,7 +463,6 @@ export default function MDXEditorPage() {
             </select>
           </div>
         </div>
-
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <label className="flex flex-col">
             <span className="mb-1 text-sm font-medium">Title *</span>
@@ -559,16 +592,16 @@ export default function MDXEditorPage() {
           {/* Save as draft */}
           <button
             type="submit"
-            disabled={saving}
+            disabled={saving || autoSaving}
             className="rounded bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
           >
-            {saving ? 'Saving…' : 'Save Draft'}
+            {saving ? 'Saving…' : autoSaving ? 'Autosaving…' : 'Save Draft'}
           </button>
 
           {/* Submit for review */}
           <button
             type="button"
-            disabled={saving}
+            disabled={saving || autoSaving}
             onClick={handleSubmitForReview}
             className="rounded bg-green-600 px-4 py-2 font-semibold text-white hover:bg-green-700 disabled:opacity-50"
           >
@@ -576,8 +609,12 @@ export default function MDXEditorPage() {
           </button>
 
           {message && (
-            <span className="text-sm text-gray-700 dark:text-gray-300">
-              {message}
+            <span className="text-sm text-gray-700 dark:text-gray-300">{message}</span>
+          )}
+
+          {lastAutoSave && (
+            <span className="text-xs text-gray-500">
+              Autosaved at {lastAutoSave}
             </span>
           )}
         </div>

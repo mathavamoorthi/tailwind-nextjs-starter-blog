@@ -35,7 +35,7 @@ export default function AdminDashboard() {
   const [previewLoadingSlug, setPreviewLoadingSlug] = useState<string | null>(null)
   const [previewSlug, setPreviewSlug] = useState<string | null>(null)
 
-  // NEW: sort & filter state
+  // sort & filter
   const [sortKey, setSortKey] = useState<'created' | 'updated'>('created')
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc')
   const [authorFilter, setAuthorFilter] = useState<string>('all')
@@ -43,7 +43,6 @@ export default function AdminDashboard() {
 
   const router = useRouter()
 
-  // fetchDrafts wrapped in useCallback so it can safely be used in useEffect deps
   const fetchDrafts = useCallback(async () => {
     try {
       setLoading(true)
@@ -63,7 +62,6 @@ export default function AdminDashboard() {
 
       if (!response.ok) {
         if (response.status === 401) {
-          // Clear invalid credentials and redirect to login
           localStorage.removeItem('admin_username')
           localStorage.removeItem('admin_password')
           router.push('/admin/login')
@@ -148,7 +146,7 @@ export default function AdminDashboard() {
     }
   }
 
-  // --- Preview (returns full post meta + html) ---
+  // Preview
   const handlePreview = async (slug: string) => {
     setPreviewPost(null)
     setPreviewSlug(slug)
@@ -192,7 +190,6 @@ export default function AdminDashboard() {
     }
   }
 
-  // --- Edit: open editor with this draft loaded ---
   const handleEdit = (slug: string) => {
     localStorage.setItem('ADMIN_EDITOR_LOAD', slug)
     router.push(`/editor`)
@@ -225,31 +222,27 @@ export default function AdminDashboard() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'draft':
-        return 'bg-blue-100 text-blue-800'
+        return 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200'
       case 'rejected':
-        return 'bg-red-100 text-red-800'
+        return 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200'
       default:
-        return 'bg-gray-100 text-gray-800'
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100'
     }
   }
 
-  // NEW: distinct author list for filter
   const distinctAuthors = useMemo(() => {
     const set = new Set<string>()
     drafts.forEach((d) => d.authors.forEach((a) => set.add(a)))
     return Array.from(set).sort((a, b) => a.localeCompare(b))
   }, [drafts])
 
-  // NEW: apply filter + sort
   const visibleDrafts = useMemo(() => {
     let list = [...drafts]
 
-    // Filter by author
     if (authorFilter !== 'all') {
       list = list.filter((d) => d.authors.includes(authorFilter))
     }
 
-    // Search by title / author
     if (search.trim()) {
       const q = search.toLowerCase()
       list = list.filter((d) => {
@@ -259,7 +252,6 @@ export default function AdminDashboard() {
       })
     }
 
-    // Sort
     list.sort((a, b) => {
       const aDate = new Date(sortKey === 'created' ? a.createdAt : a.updatedAt).getTime()
       const bDate = new Date(sortKey === 'created' ? b.createdAt : b.updatedAt).getTime()
@@ -273,10 +265,10 @@ export default function AdminDashboard() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+      <div className="flex min-h-[calc(100vh-5rem)] items-center justify-center bg-gray-50 dark:bg-gray-950">
         <div className="text-center">
           <div className="mx-auto h-12 w-12 animate-spin rounded-full border-b-2 border-blue-600" />
-          <p className="mt-4 text-gray-600">Loading drafts...</p>
+          <p className="mt-4 text-gray-600 dark:text-gray-300">Loading drafts...</p>
         </div>
       </div>
     )
@@ -284,9 +276,9 @@ export default function AdminDashboard() {
 
   if (error) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+      <div className="flex min-h-[calc(100vh-5rem)] items-center justify-center bg-gray-50 dark:bg-gray-950">
         <div className="text-center">
-          <p className="mb-4 text-red-600">{error}</p>
+          <p className="mb-4 text-red-600 dark:text-red-400">{error}</p>
           <button
             onClick={fetchDrafts}
             className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
@@ -299,21 +291,22 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="min-h-[calc(100vh-5rem)] bg-gray-50 py-8 dark:bg-gray-950">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-            <p className="mt-2 text-gray-600">
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+              Admin Dashboard
+            </h1>
+            <p className="mt-2 text-gray-600 dark:text-gray-400">
               Review and approve draft posts ({drafts.length} pending)
             </p>
           </div>
           <div className="flex items-center gap-3">
-            {/* NEW: link to manage page */}
             <button
               onClick={() => router.push('/admin/manage')}
-              className="rounded border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-800 hover:bg-gray-100"
+              className="rounded border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-800 hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:hover:bg-gray-800"
             >
               Manage Posts
             </button>
@@ -326,16 +319,16 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* NEW: filter + sort controls */}
+        {/* Filter + sort */}
         {drafts.length > 0 && (
-          <div className="mb-6 flex flex-wrap gap-3 rounded-lg bg-white p-4 shadow-sm">
+          <div className="mb-6 flex flex-wrap gap-3 rounded-lg bg-white p-4 shadow-sm dark:bg-gray-900 dark:shadow-none">
             <div className="flex flex-col text-sm">
-              <span className="mb-1 font-medium text-gray-700">Sort by</span>
+              <span className="mb-1 font-medium text-gray-700 dark:text-gray-200">Sort by</span>
               <div className="flex gap-2">
                 <select
                   value={sortKey}
                   onChange={(e) => setSortKey(e.target.value as 'created' | 'updated')}
-                  className="rounded border border-gray-300 px-2 py-1 text-sm"
+                  className="rounded border border-gray-300 px-2 py-1 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
                 >
                   <option value="created">Created date</option>
                   <option value="updated">Last updated</option>
@@ -343,7 +336,7 @@ export default function AdminDashboard() {
                 <select
                   value={sortDir}
                   onChange={(e) => setSortDir(e.target.value as 'asc' | 'desc')}
-                  className="rounded border border-gray-300 px-2 py-1 text-sm"
+                  className="rounded border border-gray-300 px-2 py-1 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
                 >
                   <option value="desc">Newest first</option>
                   <option value="asc">Oldest first</option>
@@ -352,11 +345,13 @@ export default function AdminDashboard() {
             </div>
 
             <div className="flex flex-col text-sm">
-              <span className="mb-1 font-medium text-gray-700">Filter by author</span>
+              <span className="mb-1 font-medium text-gray-700 dark:text-gray-200">
+                Filter by author
+              </span>
               <select
                 value={authorFilter}
                 onChange={(e) => setAuthorFilter(e.target.value)}
-                className="min-w-[160px] rounded border border-gray-300 px-2 py-1 text-sm"
+                className="min-w-[160px] rounded border border-gray-300 px-2 py-1 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
               >
                 <option value="all">All authors</option>
                 {distinctAuthors.map((a) => (
@@ -368,13 +363,13 @@ export default function AdminDashboard() {
             </div>
 
             <div className="flex flex-1 flex-col text-sm">
-              <span className="mb-1 font-medium text-gray-700">Search</span>
+              <span className="mb-1 font-medium text-gray-700 dark:text-gray-200">Search</span>
               <input
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search by title or author…"
-                className="w-full rounded border border-gray-300 px-3 py-1 text-sm"
+                className="w-full rounded border border-gray-300 px-3 py-1 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
               />
             </div>
           </div>
@@ -384,43 +379,52 @@ export default function AdminDashboard() {
         {visibleDrafts.length === 0 ? (
           <div className="py-12 text-center">
             <div className="mb-4 text-6xl text-gray-400">📝</div>
-            <h3 className="mb-2 text-lg font-medium text-gray-900">No drafts to review</h3>
-            <p className="text-gray-600">
+            <h3 className="mb-2 text-lg font-medium text-gray-900 dark:text-gray-100">
+              No drafts to review
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400">
               All posts have been reviewed or there are no pending drafts.
             </p>
           </div>
         ) : (
           <div className="space-y-6">
             {visibleDrafts.map((draft) => (
-              <div key={draft.slug} className="rounded-lg bg-white p-6 shadow">
+              <div
+                key={draft.slug}
+                className="rounded-lg bg-white p-6 shadow dark:bg-gray-900 dark:shadow-none"
+              >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="mb-2 flex flex-wrap items-center gap-2">
-                      <h3 className="text-xl font-semibold text-gray-900">{draft.title}</h3>
+                      <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                        {draft.title}
+                      </h3>
                       <span
-                        className={`rounded-full px-2 py-1 text-xs font-medium ${getStatusColor(draft.status)}`}
+                        className={`rounded-full px-2 py-1 text-xs font-medium ${getStatusColor(
+                          draft.status
+                        )}`}
                       >
                         {draft.status}
                       </span>
                       {draft.isConflict && (
-                        <span className="rounded-full bg-yellow-100 px-2 py-1 text-xs font-medium text-yellow-800">
+                        <span className="rounded-full bg-yellow-100 px-2 py-1 text-xs font-medium text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-200">
                           Conflict
                         </span>
                       )}
                     </div>
 
-                    <p className="mb-1 text-sm text-gray-600">
+                    <p className="mb-1 text-sm text-gray-600 dark:text-gray-300">
                       By {draft.authors.join(', ')} • Created {formatDate(draft.createdAt)}
                     </p>
-                    <p className="mb-2 text-xs text-gray-400">
+                    <p className="mb-2 text-xs text-gray-400 dark:text-gray-500">
                       Last updated {formatDate(draft.updatedAt)}
                     </p>
 
-                    <p className="mb-4 text-gray-700">{draft.excerpt}</p>
+                    <p className="mb-4 text-gray-700 dark:text-gray-200">{draft.excerpt}</p>
 
                     {draft.status === 'rejected' && (
-                      <div className="mb-4 rounded border border-red-200 bg-red-50 p-3">
-                        <p className="text-sm text-red-800">
+                      <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 dark:border-red-800/60 dark:bg-red-900/20">
+                        <p className="text-sm text-red-800 dark:text-red-200">
                           <strong>Rejected:</strong> {draft.feedback || 'No feedback provided'}
                         </p>
                       </div>
@@ -465,7 +469,7 @@ export default function AdminDashboard() {
                         onChange={(e) =>
                           setFeedback((prev) => ({ ...prev, [draft.slug]: e.target.value }))
                         }
-                        className="ml-2 min-w-[180px] flex-1 rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="ml-2 min-w-[180px] flex-1 rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
                       />
                     </div>
                   </div>
@@ -482,7 +486,7 @@ export default function AdminDashboard() {
           <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-lg bg-white p-6 shadow-lg dark:bg-gray-900">
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <p className="text-xs tracking-wide text-gray-500 uppercase">
+                <p className="text-xs tracking-wide text-gray-500 uppercase dark:text-gray-400">
                   Previewing draft: <span className="font-mono">{previewPost.slug}</span>
                 </p>
                 <h2 className="mt-1 text-2xl font-bold text-gray-900 dark:text-gray-100">
@@ -543,7 +547,7 @@ export default function AdminDashboard() {
             <hr className="mb-4 border-gray-200 dark:border-gray-700" />
 
             <article
-              className="prose prose-slate dark:prose-invert max-w-none"
+              className="prose prose-slate max-w-none dark:prose-invert"
               dangerouslySetInnerHTML={{ __html: previewPost.html }}
             />
           </div>

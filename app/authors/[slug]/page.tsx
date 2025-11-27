@@ -31,12 +31,12 @@ export default function AuthorPage({ params }: any) {
       const postAuthors = (post as any).authors || []
       return postAuthors.includes(author.name)
     })
-    // newest first
-    .sort(
-      (a, b) =>
-        new Date(b.date || b.publishedAt || 0).getTime() -
-        new Date(a.date || a.publishedAt || 0).getTime()
-    )
+    // newest first – use only `date` to satisfy Blog type
+    .sort((a, b) => {
+      const aTime = a.date ? new Date(a.date).getTime() : 0
+      const bTime = b.date ? new Date(b.date).getTime() : 0
+      return bTime - aTime
+    })
 
   return (
     <div className="py-8">

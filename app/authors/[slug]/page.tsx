@@ -55,9 +55,7 @@ export default function AuthorPage({ params }: any) {
         {author.role && (
           <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">{author.role}</p>
         )}
-        {author.org && (
-          <p className="text-xs text-gray-500 dark:text-gray-500">{author.org}</p>
-        )}
+      
 
         {/* Optional social row, only render what exists */}
         <div className="mt-3 flex flex-wrap items-center justify-center gap-3 text-sm">
@@ -66,11 +64,7 @@ export default function AuthorPage({ params }: any) {
               Email
             </Link>
           )}
-          {author.github && (
-            <Link href={author.github} className="text-primary-500 hover:underline">
-              GitHub
-            </Link>
-          )}
+        
           {author.linkedin && (
             <Link href={author.linkedin} className="text-primary-500 hover:underline">
               LinkedIn

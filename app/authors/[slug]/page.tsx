@@ -1,64 +1,58 @@
-import { notFound } from 'next/navigation'
 import { allBlogs } from 'contentlayer/generated'
-import { allCoreContent } from 'pliny/utils/contentlayer' // ✅ use allCoreContent
-import ListLayout from '@/layouts/ListLayout'
 import { authors } from '@/data/authors'
-
-export function generateStaticParams() {
-  return authors.map((a) => ({ slug: a.slug }))
-}
+import Image from 'next/image'
+import Link from '@/components/Link'
+import { notFound } from 'next/navigation'
+import { CoreContent } from 'pliny/utils/contentlayer'
 
 export default function AuthorPage({ params }: { params: { slug: string } }) {
-  const author = authors.find((a) => a.slug === params.slug)
+  const { slug } = params
+
+  const author = authors.find((a) => a.slug === slug)
   if (!author) return notFound()
 
-  const authorPosts = allBlogs
-    .filter((post) => !post.draft)
-    .filter((post) => (post.authors || []).includes(author.name))
-
-  // ❌ const corePosts = authorPosts.map((post) => CoreContent(post))
-  // ✅ correct:
-  const corePosts = allCoreContent(authorPosts)
+  const authorPosts = allBlogs.filter((post) => post.authors?.includes(author.name))
+  const posts = authorPosts.map((p) => CoreContent(p))
 
   return (
     <div className="py-8">
-      {/* author header */}
+      {/* Header */}
       <div className="mb-10 flex flex-col items-center text-center">
-        <div className="mb-4 h-28 w-28 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-800">
-          {author.avatar && (
-            <img
+        <div className="h-28 w-28 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-800">
+          {author.avatar ? (
+            <Image
               src={author.avatar}
               alt={author.name}
-              className="h-full w-full object-cover"
+              width={120}
+              height={120}
+              className="rounded-full object-cover"
             />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-4xl font-bold">
+              {author.name[0]}
+            </div>
           )}
         </div>
 
-        <h1 className="text-3xl font-extrabold text-gray-900 dark:text-gray-100">
-          {author.name}
-        </h1>
-        {author.role && (
-          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">{author.role}</p>
-        )}
-
-        <div className="mt-4 flex items-center gap-4 text-gray-500 dark:text-gray-400">
-          {author.email && <a href={author.email}>✉️</a>}
-          {author.linkedin && <a href={author.linkedin}>in</a>}
-        </div>
+        <h1 className="mt-4 text-3xl font-bold">{author.name}</h1>
+        {author.role && <p className="text-gray-600 dark:text-gray-300">{author.role}</p>}
       </div>
 
-      {/* posts list */}
-      {corePosts.length === 0 ? (
-        <p className="text-center text-sm text-gray-600 dark:text-gray-400">
-          No posts by {author.name}.
-        </p>
-      ) : (
-        <ListLayout
-          posts={corePosts}
-          title={`Posts by ${author.name}`}
-          initialDisplayPosts={corePosts}
-        />
-      )}
+      {/* Posts */}
+      <div className="space-y-8">
+        {posts.length === 0 ? (
+          <p className="text-center text-gray-500">No posts by this author yet.</p>
+        ) : (
+          posts.map((post) => (
+            <div key={post.slug} className="rounded-lg border p-5 dark:border-gray-700">
+              <h2 className="text-xl font-semibold">
+                <Link href={`/${post.path}`}>{post.title}</Link>
+              </h2>
+              <p className="mt-2 text-gray-600 dark:text-gray-300">{post.summary}</p>
+            </div>
+          ))
+        )}
+      </div>
     </div>
   )
 }

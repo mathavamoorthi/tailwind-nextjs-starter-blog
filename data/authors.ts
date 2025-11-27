@@ -8,7 +8,7 @@ export type Author = {
 }
 
 export const authors: Author[] = [
-  { slug: "l4tmur", name: "L4tmur", role: "Founder of NOVA", avatar: "/static/images/authors/l4tmur.png" },
+  { slug: "l4tmur", name: "L4tmur", role: "DFIR & Web Security", avatar: "/static/images/authors/l4tmur.png" },
   { slug: "spideyy", name: "Spideyy", role: "Web & App Security", avatar: "/static/images/authors/spideyy.png" },
   { slug: "bruceleo", name: "Bruce Leo", role: "Web Security", avatar: "/static/images/authors/bruceleo.png" },
   { slug: "oxbumblebee", name: "Oxbumblebee", role: "Web Security & OSINT", avatar: "/static/images/authors/oxbumblebee.png" },

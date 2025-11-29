@@ -1,16 +1,17 @@
 ---
 title: "N0PS CTF 2025 - Writeup"
 date: "2025-05-21"
-draft: true
+draft: false
 summary: "A comprehensive write-up of the N0PS CTF 2025 by Team NOVA, sharing insights and solutions for various challenges tackled during the competition."
 tags: ["N0PS", "CTF", "Web", "Crypto", "Reversing", "Forensics", "Pwn", "OSINT"]
 authors: ["Spideyy"]
-status: draft
-createdAt: "2025-11-29T12:49:46.770Z"
-updatedAt: "2025-11-29T12:49:46.770Z"
+status: pending_review
+createdAt: "2025-11-29T12:54:24.326Z"
+updatedAt: "2025-11-29T12:54:24.326Z"
 ---
 
-give the whole content broooo:
+
+
 ## CrypTopia
 
 ### Free n00psy
@@ -25,6 +26,7 @@ Can you help me recover the secret to clone a security badge and open the secure
 **Files**  : `SignatureLog.txt` , `Secret.zip`
 
 #### First Look
+
 the `Secret.zip` seems to be encrypted having 2 files
 ![image](/static/images/n0ps-ctf-2025-writeup/1764419275892-image.png)
 
@@ -32,15 +34,14 @@ lets try to crack it with `rockyou.txt`
 
 ![image](/static/images/n0ps-ctf-2025-writeup/1764419344416-image.png)
 
-
 no luck there, next we check if its a classic zip
 
 ![image](/static/images/n0ps-ctf-2025-writeup/1764419376521-image.png)
 
-
 it is encrypted with ZipCrypto but the compression is Deflate, so a known plaintext wont work with these files ;-;
 
 #### Changing Focus
+
 Since we didn't get anywhere with `Secret.zip`, lets focus on `SignatureLog.txt`
 
 ![image](/static/images/n0ps-ctf-2025-writeup/1764419405429-image.png)
@@ -64,8 +65,6 @@ for (id,r,s) in data:
 ```
 
 ![image](/static/images/n0ps-ctf-2025-writeup/1764419427578-image.png)
-
-
 
 bamm , the `SignatureLog.txt` contains multiple signature with same `r` meaning `nonce (k)` is reused , we can use this for [nonce reuse attack](https://billatnapier.medium.com/ecdsa-signatures-are-great-but-be-carefull-of-nonce-reuse-eeba25d20ab7)
 
@@ -109,10 +108,8 @@ s2 = int("43e149561f9246162d275e6a7354d53a9ce23a727c965a5fdc61c983df53bc4", 16)
 key = list(attack(n, m1, r, s1, m2, r, s2))
 print(long_to_bytes(key[0][1]))
 ```
-[attack from jvdsn/crypto-attacks](https://github.com/jvdsn/crypto-attacks/blob/master/attacks/ecc/ecdsa_nonce_reuse.py)
 
 ![image](/static/images/n0ps-ctf-2025-writeup/1764419453493-image.png)
-
 
 `next.txt:`
 `Yay! We made it past the first step to rescue Noopsy. 
@@ -121,6 +118,7 @@ The comms seem stuck with one single operation now.
 Some things add up and some don't! Remember, patience is key for rescuing Noopsy!`
 
 loading up the `traces_ECC.npy` in numpy we see it has shape `(20, 16551)`
+
 ```python
 import numpy as np
 traces = np.load("traces_ECC.npy",allow_pickle=True)
@@ -149,17 +147,16 @@ plt.grid(True)
 plt.subplots_adjust(top=0.7, bottom=0.4,left=0,right=1)
 plt.show()
 ```
-![image](/static/images/n0ps-ctf-2025-writeup/1764419479063-image.png)
 
+![image](/static/images/n0ps-ctf-2025-writeup/1764419479063-image.png)
 
 lets Zoom in a little
 
 ![image](/static/images/n0ps-ctf-2025-writeup/1764419499421-image.png)
 
-researching only for side-channel SPA attack on ECC , we come across readings about how double-add and double-only operations different in power traces , one such example trace is 
+researching only for side-channel SPA attack on ECC , we come across readings about how double-add and double-only operations different in power traces , one such example trace is
 
 ![image](/static/images/n0ps-ctf-2025-writeup/1764419529099-image.png)
-
 
 comparing it to our traces plot , we can clearing see a pattern of shorter gaps between peeks (double-only) and longer gaps (double-add)
 ![image](/static/images/n0ps-ctf-2025-writeup/1764419567981-image.png)
@@ -198,6 +195,7 @@ for d in desc:
     if j < len(asc):
         gaps.append(asc[j] - d)
 ```
+
 Plotting for debugging and parameters adjustment
 ![image](/static/images/n0ps-ctf-2025-writeup/1764419624947-image.png)
 
@@ -222,7 +220,8 @@ plt.show()
 ```
 
 after some changing parameters and visually confirming all peaks and gaps are detected carefully
-we interpret the gaps as bits for the private key 
+we interpret the gaps as bits for the private key
+
 ```python
 gaps = np.array(gaps)
 bits= (gaps > 30).astype(int)
@@ -239,17 +238,20 @@ print("Decoded : ",long_to_bytes(num))
 Well that doesn't look right ;-;
 after checking the binary output a bit , we see that the bits are correct but it is revered so
 we reversing the binary output before decryption we get
+
 ```python
 bits = "".join(str(b) for b in bits)[::-1]
 ```
+
 ![image](/static/images/n0ps-ctf-2025-writeup/1764419703627-image.png)
 
-
 Almost there!!! , well analysing the binary output manually in [CyberChef](https://gchq.github.io/CyberChef/) ,we find there has been a extra 0 bit  in the middle of the binary output , probably because our `max_spike_width` param was too low and a peak with spiked was interpreted as another gap and 1 bit and a 0 bit was missing at the start and the end, (should really improve the script but hey if it works it works!!!!)
-Anyway fixing the binary string we get our final flag 
+Anyway fixing the binary string we get our final flag
+
 ```
 Binary : 0100111000110000010100000101001101111011010001100011000001010010010111110100101001010101010100110101010001011111001101000101111101010011001100010100110101010000010011000011001101011111001100110101100001000011010010000011010001001110010001110011001101111101
 ```
+
 ```
 FLAG : `N0PS{F0R_JUST_4_S1MPL3_3XCH4NG3}`
 ```
@@ -260,7 +262,7 @@ FLAG : `N0PS{F0R_JUST_4_S1MPL3_3XCH4NG3}`
 
 ## WebTopia
 
-###  Blog - That Blogged Too Hard
+### Blog - That Blogged Too Hard
 
 I landed on this simple-looking blog site — nothing too fancy, just three posts with titles like:
 
@@ -281,7 +283,7 @@ But I'm in a CTF, so naturally, I tried to break it.
 
 ---
 
-####  JavaScript Spoils the Mystery
+#### JavaScript Spoils the Mystery
 
 The frontend made it *way too easy* to see how things worked:
 
@@ -289,7 +291,7 @@ The frontend made it *way too easy* to see how things worked:
 fetch('/blog.php?blog=all')
 ```
 
-&#x20;Clicking one sends:
+Clicking one sends:
 
 ```
 /blog.php?blog=1
@@ -299,7 +301,7 @@ Clearly, some PHP backend is fetching blog data using that `blog` parameter. Tim
 
 ---
 
-####  Fuzzin’ and Breakin’
+#### Fuzzin’ and Breakin’
 
 Sent in some spicy nonsense:
 
@@ -338,7 +340,7 @@ Got this gem:
 str_starts_with(): Argument #1 ($haystack) must be of type string, array given
 ```
 
-Aha! It May be doing:
+Aha! It may be doing:
 
 ```php
 if (str_starts_with($blog, "http://"))
@@ -372,7 +374,7 @@ if (!str_contains($url, 'backend')) {
 }
 ```
 
-####  `/blog.php?blog=http://backend/`?
+#### `/blog.php?blog=http://backend/`?
 
 * No errors.
 * But also **no output**.
@@ -393,7 +395,7 @@ So the backend itself is mirroring the same data. Kinda boring, but useful confi
 
 ---
 
-#### Now the Clever Bit: The \`\`\*\* Bypass\*\*
+#### Now the Clever Bit: The **Bypass**
 
 Tried:
 
@@ -401,17 +403,17 @@ Tried:
 /blog.php?blog=http://backend@127.0.0.1/
 ```
 
- No warning!
- SSRF request went through.
- Redirected to index page… something’s working…
+No warning!
+SSRF request went through.
+Redirected to index page… something’s working…
 
 ---
 
-####  Why Does `http://backend@127.0.0.1/` Work?
+#### Why Does `http://backend@127.0.0.1/` Work?
 
 This is an old SSRF trick using **Basic Auth syntax** in URLs:
 
-```plaintext
+```
 http://[username]@[host]/path
 ```
 
@@ -423,10 +425,9 @@ So `http://backend@127.0.0.1:8080/` is interpreted by the browser or curl (and P
 **The username is ignored** by the server if there's no password challenge.
 
 ✔ The filter sees `"backend"` in the string, so it passes
-
 ✔ But the actual request goes to `127.0.0.1:8080`
 
-Classic SSRF bypass. You love to see it.
+Classic SSRF bypass.
 
 ---
 
@@ -462,15 +463,18 @@ N0PS{S5rF_1s_Th3_n3W_W4y}
 * Backend does:
 
   * `curl_setopt($ch, CURLOPT_URL, 'backend/' . $blog);`
-  * Or, if it starts with `http://`, uses it as a full URL
-* Localhost SSRF blocked with filter
-* Tried:
+  * or uses full URL if it starts with `http://`
+* Localhost SSRF blocked
+* Bypass with
 
-  * `/blog.php?blog=http://backend/` → no output
-  * `/blog.php?blog=http://backend/1` → same blog content as `/blog.php?blog=1`
-* Bypassed filter with `http://backend@127.0.0.1:8080/`
-* Port 8080 had the flag \`N0PS{S5rF\_1s\_Th3\_n3W\_W4y}\`
+  ```
+  http://backend@127.0.0.1:8080/
+  ```
+* Port 8080 had the flag:
+
+```
+N0PS{S5rF_1s_Th3_n3W_W4y}
+```
 
 ---
-
 

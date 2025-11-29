@@ -1,15 +1,14 @@
 ---
 title: "N0PS CTF 2025 - Writeup"
 date: "2025-05-21"
-draft: true
+draft: false
 summary: "A comprehensive write-up of the N0PS CTF 2025 by Team NOVA, sharing insights and solutions for various challenges tackled during the competition."
 tags: ["N0PS", "CTF", "Web", "Crypto", "Reversing", "Forensics", "Pwn", "OSINT"]
 authors: ["Spideyy"]
-status: draft
-createdAt: "2025-11-29T13:05:52.718Z"
-updatedAt: "2025-11-29T13:05:52.718Z"
+status: pending_review
+createdAt: "2025-11-29T13:06:51.735Z"
+updatedAt: "2025-11-29T13:06:51.735Z"
 ---
-
 
 ## CrypTopia
 
@@ -251,7 +250,7 @@ Anyway fixing the binary string we get our final flag
 Binary : 0100111000110000010100000101001101111011010001100011000001010010010111110100101001010101010100110101010001011111001101000101111101010011001100010100110101010000010011000011001101011111001100110101100001000011010010000011010001001110010001110011001101111101
 ```
 ```
-FLAG : `N0PS{F0R_JUST_4_S1MPL3_3XCH4NG3}`
+FLAG : N0PS{F0R_JUST_4_S1MPL3_3XCH4NG3}
 ```
 
 -- **Team Nova**
@@ -455,23 +454,22 @@ N0PS{S5rF_1s_Th3_n3W_W4y}
 ```
 
 ---
+### TL;DR
 
-#### TL;DR
+- Frontend calls `/blog.php?blog=all`, individual posts via ID
+- Backend does:
+    - `curl_setopt($ch, CURLOPT_URL, 'backend/' . $blog);`
+    - Or, if it starts with `http://`, uses it as a full URL
+- Localhost SSRF blocked with filter
+- Tried:
+    - `/blog.php?blog=http://backend/` → no output
+    - `/blog.php?blog=http://backend/1` → same blog content as `/blog.php?blog=1`
+- Bypassed filter with `http://backend@127.0.0.1:8080/`
+- Port 8080 had the flag:
 
-* Frontend calls `/blog.php?blog=all`, individual posts via ID
-* Backend does:
+```
+N0PS{S5rF_1s_Th3_n3W_W4y}
 
-  * `curl_setopt($ch, CURLOPT_URL, 'backend/' . $blog);`
-  * Or, if it starts with `http://`, uses it as a full URL
-* Localhost SSRF blocked with filter
-* Tried:
-
-  * `/blog.php?blog=http://backend/` → no output
-  * `/blog.php?blog=http://backend/1` → same blog content as `/blog.php?blog=1`
-* Bypassed filter with `http://backend@127.0.0.1:8080/`
-* Port 8080 had the flag \`N0PS{S5rF\_1s\_Th3\_n3W\_W4y}\`
-
----
-
+```
 
 

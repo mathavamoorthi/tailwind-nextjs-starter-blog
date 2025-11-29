@@ -22,14 +22,31 @@ export default function AuthorPage({ params }: any) {
   }
 
   // 2) Filter posts that belong to this author
-  //    We match by author.name in the MDX frontmatter authors: ['Bruce Leo', ...]
+  //    Match by author.slug or author.name (case-insensitive)
+  const authorSlugLower = author.slug.toLowerCase()
+  const authorNameLower = author.name.toLowerCase()
+
   const authorPosts = allBlogs
     .filter((post) => {
-      const isDraft = (post as any).draft === true
-      if (isDraft) return false
+      const p: any = post
 
-      const postAuthors = (post as any).authors || []
-      return postAuthors.includes(author.name)
+      // Skip drafts
+      if (p.draft === true) return false
+
+      // Normalize authors field into an array of strings
+      let postAuthors: string[] = []
+      if (Array.isArray(p.authors)) {
+        postAuthors = p.authors
+      } else if (typeof p.authors === 'string') {
+        postAuthors = [p.authors]
+      } else if (typeof p.author === 'string') {
+        // fallback if some old posts use `author` instead of `authors`
+        postAuthors = [p.author]
+      }
+
+      const normalized = postAuthors.map((a) => String(a).toLowerCase())
+
+      return normalized.includes(authorSlugLower) || normalized.includes(authorNameLower)
     })
     // newest first – use only `date` to satisfy Blog type
     .sort((a, b) => {
@@ -55,7 +72,6 @@ export default function AuthorPage({ params }: any) {
         {author.role && (
           <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">{author.role}</p>
         )}
-      
 
         {/* Optional social row, only render what exists */}
         <div className="mt-3 flex flex-wrap items-center justify-center gap-3 text-sm">
@@ -64,7 +80,7 @@ export default function AuthorPage({ params }: any) {
               Email
             </Link>
           )}
-        
+
           {author.linkedin && (
             <Link href={author.linkedin} className="text-primary-500 hover:underline">
               LinkedIn

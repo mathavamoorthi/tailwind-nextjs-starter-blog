@@ -1,27 +1,15 @@
 ---
-title: CSEC INDIA CTF 2025 - 1st Place Writeup by l4tmur
-date: '2025-05-05'
-draft: false
-summary: >-
-  My detailed write-up for the CSEC INDIA CTF 2025, where I secured first place.
-  This post covers solutions for various challenges across different categories.
-tags:
-  - CSECINDIA
-  - CTF
-  - WEB
-  - CRYPTO
-  - REVERSING
-  - FORENSICS
-  - PWN
-  - OSINT
-authors:
-  - l4tmur
-status: rejected
-createdAt: '2025-11-29T09:46:43.751Z'
-updatedAt: '2025-11-29T09:46:43.751Z'
-rejectedAt: '2025-11-29T09:54:50.279Z'
-feedback: SXzcx
+title: "CSEC INDIA CTF 2025 - 1st Place Writeup by l4tmur"
+date: "2025-05-05"
+draft: true
+summary: "My detailed write-up for the CSEC INDIA CTF 2025, where I secured first place. This post covers solutions for various challenges across different categories."
+tags: ["CSECINDIA", "CTF", "WEB", "CRYPTO", "REVERSING", "FORENSICS", "PWN", "OSINT"]
+authors: ["l4tmur"]
+status: draft
+createdAt: "2025-11-29T09:55:59.917Z"
+updatedAt: "2025-11-29T09:55:59.917Z"
 ---
+
 
 
 ## RICK - WEB
@@ -248,7 +236,7 @@ for otp_value in range(100):
 
 ```
 
-**Flag**: HTB{L3NGTH_D0E5NT_MATT3R_0R_D03S_1T?}
+**Flag**: `HTB{L3NGTH_D0E5NT_MATT3R_0R_D03S_1T?}`
 
 ---
 
@@ -335,7 +323,7 @@ For example, a request with a negative row:
 }
 ```
 
-**Flag**: HTB{tw000_g00d_f0ur_r34l?_8784703363}
+**Flag**: `HTB{tw000_g00d_f0ur_r34l?_8784703363}`
 
 ---
 
@@ -375,7 +363,7 @@ print(brute_force_shifted_flag(text))
 
 ```
 
-**Flag**: HTB{N07_4ll_Cryp70_15_UnBr34k4bl3}
+**Flag**: `HTB{N07_4ll_Cryp70_15_UnBr34k4bl3}`
 
 ---
 
@@ -489,7 +477,7 @@ with open("flag", "r") as file:
 
 The resulting PNG images revealed the flag.
 
-**Flag**: HTB{a1c0hol_i5_bad_f0r_y0u}
+**Flag**: `HTB{a1c0hol_i5_bad_f0r_y0u}`
 
 ---
 
@@ -505,9 +493,9 @@ I used a PDF cracker (e.g., `pdf2john.py` then `john` or `hashcat`) to crack thi
 
 I then used the same password, `iloveyou`, to unlock `reason.pdf`, which contained the second flag.
 
-Flag from flag7.pdf: HTB{D4Mn_%_N11G433}
+Flag from flag7.pdf: `HTB{D4Mn_%_N11G433}`
 
-Flag from reason.pdf: HTB{y0U_f0U4D_FT13_REASON}
+Flag from reason.pdf: `HTB{y0U_f0U4D_FT13_REASON}`
 
 ---
 
@@ -534,7 +522,7 @@ I was given `n` and `ciphertext`. Initially, I tried the common public exponent 
 
 Through brute-forcing potential XOR keys with the provided hex string, I discovered that XORing it with the ASCII character 'E' (0x45) resulted in `e = 69691`. This value, interestingly, is "69691" which could be a playful hint ("nice"). Using this public exponent, `e = 69691`, along with the given `n` and `ciphertext`, allowed for successful decryption of the RSA message.
 
-**Flag**: HTB{rsa_seems_cool_heh}
+**Flag**: `HTB{rsa_seems_cool_heh}`
 
 ---
 
@@ -572,7 +560,7 @@ I extracted all these hidden fields and arranged them in order:
 
 Recognizing the pattern of character substitution, I applied a **ROT13** cipher to this string, which successfully decoded it into the flag.
 
-**FLAG**: HTB{why_it5_4lw4y5_f0r3n5uck5}
+**FLAG**: `HTB{why_it5_4lw4y5_f0r3n5uck5}`
 
 ---
 
@@ -632,7 +620,7 @@ except Exception:
 
 ```
 
-**Flag**: HTB{4n0th3r_e45y_p345y_rs4_qs}
+**Flag**: `HTB{4n0th3r_e45y_p345y_rs4_qs}`
 
 ---
 
@@ -689,4 +677,5 @@ except:
 
 ```
 
-**Flag**: HTB{c0mm0n_m0du1u5_4774ck_1337_1731}
+**Flag**: `HTB{c0mm0n_m0du1u5_4774ck_1337_1731}`
+

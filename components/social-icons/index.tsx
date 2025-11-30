@@ -38,12 +38,13 @@ const SocialIcon = ({ kind, href, size = 8 }: SocialIconProps) => {
   const isWide = lookupKey === 'hackthebox' || lookupKey === 'ctftime'
 
   return (
-    <a
-      className="flex items-center text-sm text-gray-500 transition hover:text-gray-600"
-      target="_blank"
-      rel="noopener noreferrer"
-      href={href}
-    >
+  <a
+    className="flex items-center text-sm text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100 transition"
+    target="_blank"
+    rel="noopener noreferrer"
+    href={href}
+  >
+
       <span className="sr-only">{kind}</span>
 
       {isWide ? (

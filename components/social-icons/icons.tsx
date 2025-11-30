@@ -21,25 +21,25 @@ export function Instagram(svgProps: SVGProps<SVGSVGElement>) {
     </svg>
   )
 }
-
 export function HackTheBox(props: { className?: string }) {
   return (
-    <span
-      className={`inline-flex items-center gap-2 ${props.className || ''}`}
-    >
+    <span className={`flex items-center gap-1 ${props.className || ''}`}>
       <img
         src={`${process.env.BASE_PATH || ''}/static/images/hactheboxlogo.jpeg`}
         alt="Hack The Box"
         className="h-7 w-auto"
       />
-      <span className="font-bold text-green-300">
+      <span className="text-sm font-semibold text-emerald-700 dark:text-green-300">
         HACK
-        <span className="font-normal mx-1 text-white">THE</span>
+        <span className="mx-1 font-normal text-slate-900 dark:text-white">
+          THE
+        </span>
         BOX
       </span>
     </span>
   )
 }
+
 
 export function CtfTime(props: { className?: string }) {
   const cls = props.className || ''

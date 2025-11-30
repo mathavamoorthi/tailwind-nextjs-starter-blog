@@ -24,7 +24,6 @@ const SocialIcon = ({ kind, href, size = 8 }: SocialIconProps) => {
     return null
   }
 
-  // Normalize case (ctftime, CTFtime, CTFtime all resolved)
   const lookupKey = (typeof kind === 'string' ? kind.toLowerCase() : String(kind)) as KnownKind
   const SocialSvg = components[lookupKey]
 
@@ -38,19 +37,20 @@ const SocialIcon = ({ kind, href, size = 8 }: SocialIconProps) => {
   const isWide = lookupKey === 'hackthebox' || lookupKey === 'ctftime'
 
   return (
-  <a
-    className="flex items-center text-sm text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100 transition"
-    target="_blank"
-    rel="noopener noreferrer"
-    href={href}
-  >
-
+    <a
+      className="flex items-center text-sm text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100 transition"
+      target="_blank"
+      rel="noopener noreferrer"
+      href={href}
+    >
       <span className="sr-only">{kind}</span>
 
       {isWide ? (
+        // HTB + CTFtime (image/text logos)
         <SocialSvg className="h-7 w-auto" />
       ) : (
-        <SocialSvg className={`h-${size} w-${size}`} />
+        // Normal SVG icons (LinkedIn, Instagram) — use currentColor for fill
+        <SocialSvg className={`h-${size} w-${size} fill-current`} />
       )}
     </a>
   )

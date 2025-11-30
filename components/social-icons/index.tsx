@@ -24,6 +24,7 @@ const SocialIcon = ({ kind, href, size = 8 }: SocialIconProps) => {
     return null
   }
 
+  // Normalize case (ctftime, CTFtime, CTFtime all resolved)
   const lookupKey = (typeof kind === 'string' ? kind.toLowerCase() : String(kind)) as KnownKind
   const SocialSvg = components[lookupKey]
 
@@ -34,23 +35,21 @@ const SocialIcon = ({ kind, href, size = 8 }: SocialIconProps) => {
     return null
   }
 
-  const isWideLogo = lookupKey === 'hackthebox' || lookupKey === 'ctftime'
+  const isWide = lookupKey === 'hackthebox' || lookupKey === 'ctftime'
 
   return (
     <a
-      className="text-sm text-gray-500 transition hover:text-gray-600"
+      className="flex items-center text-sm text-gray-500 transition hover:text-gray-600"
       target="_blank"
       rel="noopener noreferrer"
       href={href}
     >
       <span className="sr-only">{kind}</span>
 
-      {isWideLogo ? (
-        <SocialSvg className="!h-auto !w-auto" />
+      {isWide ? (
+        <SocialSvg className="h-7 w-auto" />
       ) : (
-        <SocialSvg
-          className={`hover:text-primary-500 dark:hover:text-primary-400 fill-current text-gray-700 dark:text-gray-200 h-${size} w-${size}`}
-        />
+        <SocialSvg className={`h-${size} w-${size}`} />
       )}
     </a>
   )

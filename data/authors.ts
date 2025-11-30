@@ -12,7 +12,7 @@ export const authors: Author[] = [
   { slug: "spideyy", name: "Spideyy", role: "Web & App Security", avatar: "/static/images/authors/spideyy.png" },
   { slug: "bruceleo", name: "Bruce Leo", role: "Web Security", avatar: "/static/images/authors/bruceleo.png" },
   { slug: "oxbumblebee", name: "Oxbumblebee", role: "Web Security & OSINT", avatar: "/static/images/authors/oxbumblebee.png" },
-  { slug: "oxhyder0", name: "Oxhyder0", role: "Binary Exploitation", avatar: "/static/images/authors/hyder.png" },
+  { slug: "0xhyder0", name: "Oxhyder0", role: "Binary Exploitation", avatar: "/static/images/authors/hyder.png" },
   { slug: "jjkings", name: "JJ Kings", role: "Reverse Engineering", avatar: "/static/images/authors/jjkings.png" },
   { slug: "jonsnow", name: "Jon Snow", role: "Web Security", avatar: "/static/images/authors/jonsnow.png" },
   { slug: "pop3ye", name: "POp3ye", role: "DFIR", avatar: "/static/images/authors/pop3ye.png" },

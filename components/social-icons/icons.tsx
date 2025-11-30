@@ -23,15 +23,24 @@ export function Instagram(svgProps: SVGProps<SVGSVGElement>) {
 }
 
 export function HackTheBox(props: { className?: string }) {
-  const cls = `${props.className || ''} rounded-lg object-cover`
   return (
-    <img
-      src={`${process.env.BASE_PATH || ''}/static/images/hactheboxlogo.jpeg`}
-      alt="Hack The Box"
-      className={cls}
-    />
+    <span
+      className={`inline-flex items-center gap-2 ${props.className || ''}`}
+    >
+      <img
+        src={`${process.env.BASE_PATH || ''}/static/images/hactheboxlogo.jpeg`}
+        alt="Hack The Box"
+        className="h-5 w-auto"
+      />
+      <span className="font-bold text-green-300">
+        HACK
+        <span className="font-normal mx-1 text-white">THE</span>
+        BOX
+      </span>
+    </span>
   )
 }
+
 export function CtfTime(props: { className?: string }) {
   const cls = props.className || ''
 

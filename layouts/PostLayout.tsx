@@ -7,6 +7,7 @@ import SectionContainer from '@/components/SectionContainer'
 import Image from '@/components/Image'
 import Tag from '@/components/Tag'
 import siteMetadata from '@/data/siteMetadata'
+import TOCInline from 'pliny/ui/TOCInline'
 
 const postDateTemplate: Intl.DateTimeFormatOptions = {
   weekday: 'long',
@@ -20,10 +21,18 @@ interface LayoutProps {
   authorDetails: CoreContent<Author>[]
   next?: { path: string; title: string }
   prev?: { path: string; title: string }
+  toc?: any
   children: ReactNode
 }
 
-export default function PostLayout({ content, authorDetails, next, prev, children }: LayoutProps) {
+export default function PostLayout({
+  content,
+  authorDetails,
+  next,
+  prev,
+  toc,
+  children,
+}: LayoutProps) {
   const { path, date, title, tags } = content
   const basePath = path.split('/')[0]
 
@@ -50,7 +59,7 @@ export default function PostLayout({ content, authorDetails, next, prev, childre
           </header>
 
           <div className="grid-rows-[auto_1fr] divide-y divide-gray-200 pb-8 xl:grid xl:grid-cols-4 xl:gap-x-6 xl:divide-y-0 dark:divide-gray-700">
-            {/* Author sidebar */}
+            {/* Author sidebar + TOC */}
             <dl className="pt-6 pb-10 xl:border-b xl:border-gray-200 xl:pt-11 xl:dark:border-gray-700">
               <dt className="sr-only">Author</dt>
               <dd>
@@ -86,6 +95,16 @@ export default function PostLayout({ content, authorDetails, next, prev, childre
                     </li>
                   ))}
                 </ul>
+
+                {/* TOC in sidebar (desktop only) */}
+                {toc?.length > 0 && (
+                  <div className="mt-8 hidden xl:block">
+                    <h2 className="text-xs tracking-wide text-gray-500 uppercase dark:text-gray-400 mb-2">
+                      On this page
+                    </h2>
+                    <TOCInline toc={toc} asDisclosure={false} indentDepth={2} />
+                  </div>
+                )}
               </dd>
             </dl>
 
@@ -93,7 +112,7 @@ export default function PostLayout({ content, authorDetails, next, prev, childre
             <div className="divide-y divide-gray-200 xl:col-span-3 xl:row-span-2 xl:pb-0 dark:divide-gray-700">
               <div className="prose dark:prose-invert max-w-none pt-10 pb-8">{children}</div>
 
-              {/* Read next section – replaces Twitter/GitHub + comments */}
+              {/* Read next section – nice cards for prev/next */}
               {(next || prev) && (
                 <div className="pt-8 pb-4">
                   <h2 className="text-lg font-semibold mb-4">Read next</h2>

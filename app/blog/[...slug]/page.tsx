@@ -129,25 +129,30 @@ export default async function Page(props: { params: Promise<{ slug: string[] }> 
       name: author.name,
     })),
   }
+const Layout = layouts[post.layout || defaultLayout]
 
-  const Layout = layouts[post.layout || defaultLayout]
-
-  return (
-    <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
-      <Layout content={mainContent} authorDetails={authorDetails} next={next} prev={prev}>
-        {post.body?.code ? (
-          <MDXLayoutRenderer code={post.body.code} components={components} toc={post.toc} />
-        ) : (
-          <div className="prose dark:prose-invert">
-            <PageTitle>{post.title}</PageTitle>
-            <p>Post content not available.</p>
-          </div>
-        )}
-      </Layout>
-    </>
-  )
+return (
+  <>
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+    />
+    <Layout
+      content={mainContent}
+      authorDetails={authorDetails}
+      next={next}
+      prev={prev}
+      toc={post.toc}
+    >
+      {post.body?.code ? (
+        <MDXLayoutRenderer code={post.body.code} components={components} toc={post.toc} />
+      ) : (
+        <div className="prose dark:prose-invert">
+          <PageTitle>{post.title}</PageTitle>
+          <p>Post content not available.</p>
+        </div>
+      )}
+    </Layout>
+  </>
+)
 }

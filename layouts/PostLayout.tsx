@@ -36,7 +36,7 @@ export default function PostLayout({
 
   return (
     // ⬇️ Dedicated wide container for blog posts
-    <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
       <article>
         <div className="xl:divide-y xl:divide-gray-200 xl:dark:divide-gray-700">
           {/* Header */}
@@ -58,11 +58,11 @@ export default function PostLayout({
             </div>
           </header>
 
-          {/* Layout grid: col1 author+tags | col2-3 content | col4 TOC */}
-          <div className="grid-rows-[auto_1fr] divide-y divide-gray-200 pb-8 xl:grid xl:grid-cols-4 xl:gap-x-6 xl:divide-y-0 dark:divide-gray-700">
-            {/* LEFT SIDEBAR: Author + Tags */}
-            <div className="pt-6 pb-10 xl:pt-11">
-              <div className="sticky top-24 space-y-6 max-w-xs">
+          {/* Layout grid: narrower col1 author+tags | wider col2-3 content | col4 TOC */}
+          <div className="grid-rows-[auto_1fr] divide-y divide-gray-200 pb-8 xl:grid xl:grid-cols-12 xl:gap-x-6 xl:divide-y-0 dark:divide-gray-700">
+            {/* LEFT SIDEBAR: Author + Tags - Now takes 2 columns instead of 3 */}
+            <div className="pt-6 pb-10 xl:pt-11 xl:col-span-2">
+              <div className="sticky top-24 space-y-6">
                 {/* Author card */}
                 <div className="rounded-2xl border border-gray-200 bg-gray-50/80 p-3 text-sm dark:border-gray-700 dark:bg-gray-900/40">
                   <h2 className="mb-2 text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400">
@@ -114,8 +114,8 @@ export default function PostLayout({
               </div>
             </div>
 
-            {/* MAIN CONTENT – center (cols 2–3) */}
-            <div className="divide-y divide-gray-200 xl:col-span-2 xl:col-start-2 xl:row-span-2 xl:pb-0 dark:divide-gray-700">
+            {/* MAIN CONTENT – center - Now takes 7 columns instead of 6 */}
+            <div className="divide-y divide-gray-200 xl:col-span-7 xl:row-span-2 xl:pb-0 dark:divide-gray-700">
               <div className="prose dark:prose-invert max-w-none pt-10 pb-8">{children}</div>
 
               {(next || prev) && (
@@ -153,17 +153,17 @@ export default function PostLayout({
               )}
             </div>
 
-            {/* RIGHT SIDEBAR: TOC – sticky */}
+            {/* RIGHT SIDEBAR: TOC – sticky - Takes 3 columns */}
             {toc?.length > 0 && (
-              <aside className="hidden xl:block xl:pt-11 xl:col-start-4 xl:row-span-2">
-                <div className="sticky top-24 max-w-xs">
+              <aside className="hidden xl:block xl:pt-11 xl:col-span-3 xl:row-span-2">
+                <div className="sticky top-24">
                   <NovaTOC toc={toc} />
                 </div>
               </aside>
             )}
 
             {/* Footer filler */}
-            <footer className="hidden xl:block xl:col-span-4" aria-hidden="true" />
+            <footer className="hidden xl:block xl:col-span-12" aria-hidden="true" />
           </div>
         </div>
       </article>

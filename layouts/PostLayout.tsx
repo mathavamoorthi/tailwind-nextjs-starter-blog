@@ -58,9 +58,9 @@ export default function PostLayout({
             </div>
           </header>
 
-          {/* Main grid: author (left) / content (middle) / TOC (right) */}
+          {/* Grid: col1 author, col2-3 content, col4 TOC */}
           <div className="grid-rows-[auto_1fr] divide-y divide-gray-200 pb-8 xl:grid xl:grid-cols-4 xl:gap-x-6 xl:divide-y-0 dark:divide-gray-700">
-            {/* Author sidebar */}
+            {/* Author sidebar (left) */}
             <dl className="pt-6 pb-10 xl:border-b xl:border-gray-200 xl:pt-11 xl:dark:border-gray-700">
               <dt className="sr-only">Author</dt>
               <dd>
@@ -99,8 +99,8 @@ export default function PostLayout({
               </dd>
             </dl>
 
-            {/* Main content column (center) */}
-            <div className="divide-y divide-gray-200 xl:col-span-2 xl:row-span-2 xl:pb-0 dark:divide-gray-700">
+            {/* Main content (center, spans col 2–3) */}
+            <div className="divide-y divide-gray-200 xl:col-span-2 xl:col-start-2 xl:row-span-2 xl:pb-0 dark:divide-gray-700">
               <div className="prose dark:prose-invert max-w-none pt-10 pb-8">{children}</div>
 
               {/* Read next section */}
@@ -139,19 +139,21 @@ export default function PostLayout({
               )}
             </div>
 
-            {/* TOC on the right (desktop only) */}
+            {/* TOC (right, sticky, desktop only) */}
             {toc?.length > 0 && (
-              <aside className="hidden xl:block xl:pt-10">
-                <h2 className="text-xs tracking-wide text-gray-500 uppercase dark:text-gray-400 mb-2">
-                  On this page
-                </h2>
-                <TOCInline toc={toc} asDisclosure={false} />
+              <aside className="hidden xl:block xl:pt-11 xl:col-start-4">
+                <div className="sticky top-24 rounded-xl border border-gray-200 bg-gray-50/70 p-4 text-sm dark:border-gray-700 dark:bg-gray-900/40">
+                  <h2 className="mb-2 text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400">
+                    Contents
+                  </h2>
+                  <TOCInline toc={toc} asDisclosure={false} />
+                </div>
               </aside>
             )}
 
-            {/* Footer: tags + back to blog (full width on desktop) */}
-            <footer className="mt-6 xl:mt-8 xl:col-span-4">
-              <div className="divide-gray-200 text-sm leading-5 font-medium xl:divide-y dark:divide-gray-700">
+            {/* Footer: tags (left bottom) + back link */}
+            <footer>
+              <div className="divide-gray-200 text-sm leading-5 font-medium xl:col-start-1 xl:row-start-2 xl:divide-y dark:divide-gray-700">
                 {tags && (
                   <div className="py-4 xl:py-8">
                     <h2 className="text-xs tracking-wide text-gray-500 uppercase dark:text-gray-400">
@@ -166,7 +168,7 @@ export default function PostLayout({
                 )}
               </div>
 
-              <div className="pt-2 xl:pt-4">
+              <div className="pt-4 xl:pt-8">
                 <Link
                   href={`/${basePath}`}
                   className="text-primary-500 hover:text-primary-600 dark:hover:text-primary-400"

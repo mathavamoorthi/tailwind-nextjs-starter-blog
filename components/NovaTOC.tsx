@@ -47,7 +47,7 @@ export default function NovaTOC({ toc }: { toc: TocItem[] }) {
   }, [toc])
 
   return (
-    <div className="sticky top-24 rounded-2xl border border-gray-200 bg-gray-50/80 p-4 text-sm dark:border-gray-700 dark:bg-gray-900/40">
+    <div className="rounded-2xl border border-gray-200 bg-gray-50/80 p-4 text-sm dark:border-gray-700 dark:bg-gray-900/40">
       <h2 className="mb-2 text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400">
         Contents
       </h2>
@@ -61,8 +61,8 @@ export default function NovaTOC({ toc }: { toc: TocItem[] }) {
           const weight = item.depth === 2 ? 'font-semibold' : ''
 
           const color = isActive
-            ? 'text-primary-600 dark:text-primary-400' // active: pink
-            : 'text-gray-700 dark:text-gray-300'       // normal: visible in light + dark
+            ? 'text-primary-600 dark:text-primary-400'
+            : 'text-gray-700 dark:text-gray-300'
 
           return (
             <li key={item.url}>

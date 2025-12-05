@@ -58,8 +58,15 @@ export default function PostLayout({
             </div>
           </header>
 
-          {/* Layout grid: col1 author+tags | col2–3 content | col4 TOC */}
-          <div className="grid-rows-[auto_1fr] divide-y divide-gray-200 pb-8 xl:grid xl:grid-cols-4 xl:gap-x-6 xl:divide-y-0 dark:divide-gray-700">
+          {/* 3-column grid: [ author+tags | content | TOC ] */}
+          <div
+            className="grid-rows-[auto_1fr] divide-y divide-gray-200 pb-8
+            xl:grid
+            xl:grid-cols-[minmax(0,0.9fr)_minmax(0,2.4fr)_minmax(0,1.2fr)]
+            xl:gap-x-8
+            xl:divide-y-0
+            dark:divide-gray-700"
+          >
             {/* LEFT SIDEBAR: Author + Tags */}
             <div className="pt-6 pb-10 xl:pt-11">
               <div className="sticky top-24 space-y-6 max-w-xs">
@@ -114,11 +121,10 @@ export default function PostLayout({
               </div>
             </div>
 
-            {/* MAIN CONTENT (center, spans col 2–3) */}
-            <div className="divide-y divide-gray-200 xl:col-span-2 xl:col-start-2 xl:row-span-2 xl:pb-0 dark:divide-gray-700">
+            {/* MAIN CONTENT – middle column */}
+            <div className="divide-y divide-gray-200 xl:col-start-2 xl:row-span-2 xl:pb-0 dark:divide-gray-700">
               <div className="prose dark:prose-invert max-w-none pt-10 pb-8">{children}</div>
 
-              {/* Read next section */}
               {(next || prev) && (
                 <div className="pt-8 pb-4">
                   <h2 className="text-lg font-semibold mb-4">Read next</h2>
@@ -156,15 +162,15 @@ export default function PostLayout({
 
             {/* RIGHT SIDEBAR: TOC */}
             {toc?.length > 0 && (
-              <aside className="hidden xl:block xl:pt-11 xl:col-start-4 xl:row-span-2">
+              <aside className="hidden xl:block xl:pt-11 xl:col-start-3 xl:row-span-2">
                 <div className="max-w-xs">
                   <NovaTOC toc={toc} />
                 </div>
               </aside>
             )}
 
-            {/* Footer filler to keep grid happy */}
-            <footer className="hidden xl:block xl:col-span-4" aria-hidden="true" />
+            {/* Footer filler */}
+            <footer className="hidden xl:block xl:col-span-3" aria-hidden="true" />
           </div>
         </div>
       </article>

@@ -102,7 +102,7 @@ export default function PostLayout({
                     <h2 className="text-xs tracking-wide text-gray-500 uppercase dark:text-gray-400 mb-2">
                       On this page
                     </h2>
-                    <TOCInline toc={toc} asDisclosure={false} indentDepth={2} />
+                    <TOCInline toc={toc} asDisclosure={false} />
                   </div>
                 )}
               </dd>

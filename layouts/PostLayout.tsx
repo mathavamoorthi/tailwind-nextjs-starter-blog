@@ -153,10 +153,10 @@ export default function PostLayout({
               )}
             </div>
 
-            {/* RIGHT SIDEBAR: TOC (sticky handled inside NovaTOC) */}
+            {/* RIGHT SIDEBAR: TOC – sticky wrapper here */}
             {toc?.length > 0 && (
               <aside className="hidden xl:block xl:pt-11 xl:col-start-4 xl:row-span-2">
-                <div className="max-w-xs">
+                <div className="sticky top-24 max-w-xs">
                   <NovaTOC toc={toc} />
                 </div>
               </aside>

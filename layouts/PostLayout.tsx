@@ -40,6 +40,7 @@ export default function PostLayout({
     <SectionContainer>
       <article>
         <div className="xl:divide-y xl:divide-gray-200 xl:dark:divide-gray-700">
+          {/* Header */}
           <header className="pt-6 xl:pb-6">
             <div className="space-y-1 text-center">
               <dl className="space-y-10">
@@ -58,48 +59,63 @@ export default function PostLayout({
             </div>
           </header>
 
-          {/* Back to simple, aligned 4-column grid */}
+          {/* Layout grid: author/tags | content | TOC */}
           <div className="grid-rows-[auto_1fr] divide-y divide-gray-200 pb-8 xl:grid xl:grid-cols-4 xl:gap-x-6 xl:divide-y-0 dark:divide-gray-700">
-            {/* Author sidebar (left) */}
-            <dl className="pt-6 pb-10 xl:border-b xl:border-gray-200 xl:pt-11 xl:dark:border-gray-700">
-              <dt className="sr-only">Author</dt>
-              <dd>
-                <ul className="flex flex-wrap justify-center gap-4 sm:space-x-12 xl:block xl:space-y-8 xl:space-x-0">
-                  {authorDetails.map((author) => (
-                    <li className="flex items-center space-x-2" key={author.name}>
-                      {author.avatar && (
-                        <Image
-                          src={author.avatar}
-                          width={38}
-                          height={38}
-                          alt="avatar"
-                          className="h-10 w-10 rounded-full"
-                        />
-                      )}
-                      <dl className="text-sm leading-5 font-medium whitespace-nowrap">
-                        <dt className="sr-only">Name</dt>
-                        <dd className="text-gray-900 dark:text-gray-100">{author.name}</dd>
-                        <dt className="sr-only">Twitter</dt>
-                        <dd>
+            {/* LEFT SIDEBAR: Author + Tags */}
+            <div className="pt-6 pb-10 xl:pt-11">
+              <div className="sticky top-24 space-y-6">
+                {/* Author card */}
+                <div className="rounded-2xl border border-gray-200 bg-gray-50/80 p-4 text-sm dark:border-gray-700 dark:bg-gray-900/40">
+                  <h2 className="mb-2 text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400">
+                    Author
+                  </h2>
+                  <ul className="space-y-4">
+                    {authorDetails.map((author) => (
+                      <li className="flex items-center space-x-3" key={author.name}>
+                        {author.avatar && (
+                          <Image
+                            src={author.avatar}
+                            width={36}
+                            height={36}
+                            alt={author.name}
+                            className="h-9 w-9 rounded-full"
+                          />
+                        )}
+                        <div className="text-sm leading-5 font-medium">
+                          <p className="text-gray-900 dark:text-gray-100">{author.name}</p>
                           {author.twitter && (
                             <Link
                               href={author.twitter}
-                              className="text-primary-500 hover:text-primary-600 dark:hover:text-primary-400"
+                              className="text-primary-500 hover:text-primary-600 dark:hover:text-primary-400 text-xs"
                             >
                               {author.twitter
                                 .replace('https://twitter.com/', '@')
                                 .replace('https://x.com/', '@')}
                             </Link>
                           )}
-                        </dd>
-                      </dl>
-                    </li>
-                  ))}
-                </ul>
-              </dd>
-            </dl>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
 
-            {/* Main content (center, spans col 2–3) */}
+                {/* Tags card */}
+                {tags && tags.length > 0 && (
+                  <div className="rounded-2xl border border-gray-200 bg-gray-50/80 p-4 text-sm dark:border-gray-700 dark:bg-gray-900/40">
+                    <h2 className="mb-2 text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400">
+                      Tags
+                    </h2>
+                    <div className="flex flex-col space-y-1">
+                      {tags.map((tag) => (
+                        <Tag key={tag} text={tag} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* MAIN CONTENT (center, spans col 2–3) */}
             <div className="divide-y divide-gray-200 xl:col-span-2 xl:col-start-2 xl:row-span-2 xl:pb-0 dark:divide-gray-700">
               <div className="prose dark:prose-invert max-w-none pt-10 pb-8">{children}</div>
 
@@ -139,40 +155,15 @@ export default function PostLayout({
               )}
             </div>
 
-            {/* TOC (right, sticky) */}
+            {/* RIGHT SIDEBAR: TOC */}
             {toc?.length > 0 && (
               <aside className="hidden xl:block xl:pt-11 xl:col-start-4 xl:row-span-2">
                 <NovaTOC toc={toc} />
               </aside>
             )}
 
-            {/* Footer: tags (left bottom) + back link */}
-            <footer>
-              <div className="divide-gray-200 text-sm leading-5 font-medium xl:col-start-1 xl:row-start-2 xl:divide-y dark:divide-gray-700">
-                {tags && (
-                  <div className="py-4 xl:py-8">
-                    <h2 className="text-xs tracking-wide text-gray-500 uppercase dark:text-gray-400">
-                      Tags
-                    </h2>
-                    <div className="flex flex-wrap">
-                      {tags.map((tag) => (
-                        <Tag key={tag} text={tag} />
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="pt-4 xl:pt-8">
-                <Link
-                  href={`/${basePath}`}
-                  className="text-primary-500 hover:text-primary-600 dark:hover:text-primary-400"
-                  aria-label="Back to the blog"
-                >
-                  &larr; Back to the blog
-                </Link>
-              </div>
-            </footer>
+            {/* FOOTER – no back link now, just semantic footer if needed */}
+            <footer className="hidden xl:block xl:col-span-4" aria-hidden="true" />
           </div>
         </div>
       </article>

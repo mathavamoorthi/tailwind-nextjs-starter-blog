@@ -60,7 +60,13 @@ export default function PostLayout({
           </header>
 
           {/* Layout grid: author/tags | content | TOC */}
-          <div className="grid-rows-[auto_1fr] divide-y divide-gray-200 pb-8 xl:grid xl:grid-cols-4 xl:gap-x-6 xl:divide-y-0 dark:divide-gray-700">
+          <div className="grid-rows-[auto_1fr] divide-y divide-gray-200 pb-8 
+xl:grid 
+xl:grid-cols-[220px_1fr_1fr_260px] 
+xl:gap-x-10 
+xl:divide-y-0 
+dark:divide-gray-700">
+
             {/* LEFT SIDEBAR: Author + Tags */}
             <div className="pt-6 pb-10 xl:pt-11">
               <div className="sticky top-24 space-y-6">

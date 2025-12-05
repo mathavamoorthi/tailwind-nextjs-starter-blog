@@ -3,7 +3,6 @@ import { CoreContent } from 'pliny/utils/contentlayer'
 import type { Blog, Author } from 'contentlayer/generated'
 import Link from '@/components/Link'
 import PageTitle from '@/components/PageTitle'
-import SectionContainer from '@/components/SectionContainer'
 import Image from '@/components/Image'
 import Tag from '@/components/Tag'
 import siteMetadata from '@/data/siteMetadata'
@@ -36,7 +35,8 @@ export default function PostLayout({
   const { date, title, tags } = content
 
   return (
-    <SectionContainer>
+    // ⬇️ Dedicated wide container for blog posts
+    <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8">
       <article>
         <div className="xl:divide-y xl:divide-gray-200 xl:dark:divide-gray-700">
           {/* Header */}
@@ -130,7 +130,7 @@ export default function PostLayout({
                         <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
                           Previous article
                         </p>
-                        <p className="mt-1 font-semibold text-gray-900 dark:text-gray-100">
+                          <p className="mt-1 font-semibold text-gray-900 dark:text-gray-100">
                           {prev.title}
                         </p>
                       </Link>
@@ -153,7 +153,7 @@ export default function PostLayout({
               )}
             </div>
 
-            {/* RIGHT SIDEBAR: TOC – sticky wrapper here */}
+            {/* RIGHT SIDEBAR: TOC – sticky */}
             {toc?.length > 0 && (
               <aside className="hidden xl:block xl:pt-11 xl:col-start-4 xl:row-span-2">
                 <div className="sticky top-24 max-w-xs">
@@ -167,6 +167,6 @@ export default function PostLayout({
           </div>
         </div>
       </article>
-    </SectionContainer>
+    </div>
   )
 }

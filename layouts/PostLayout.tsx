@@ -60,18 +60,21 @@ export default function PostLayout({
           </header>
 
           {/* Layout grid: author/tags | content | TOC */}
-          <div className="grid-rows-[auto_1fr] divide-y divide-gray-200 pb-8 
-xl:grid 
-xl:grid-cols-[220px_1fr_1fr_260px] 
-xl:gap-x-10 
-xl:divide-y-0 
-dark:divide-gray-700">
+         <div
+  className="grid-rows-[auto_1fr] divide-y divide-gray-200 pb-8
+  xl:grid
+  xl:grid-cols-[180px_minmax(0,1.9fr)_minmax(0,1.9fr)_240px]
+  xl:gap-x-10
+  xl:divide-y-0
+  dark:divide-gray-700"
+>
+
 
             {/* LEFT SIDEBAR: Author + Tags */}
             <div className="pt-6 pb-10 xl:pt-11">
               <div className="sticky top-24 space-y-6">
                 {/* Author card */}
-                <div className="rounded-2xl border border-gray-200 bg-gray-50/80 p-4 text-sm dark:border-gray-700 dark:bg-gray-900/40">
+                <div className="rounded-2xl border border-gray-200 bg-gray-50/80 p-3 text-sm dark:border-gray-700 dark:bg-gray-900/40">
                   <h2 className="mb-2 text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400">
                     Author
                   </h2>
@@ -107,7 +110,7 @@ dark:divide-gray-700">
 
                 {/* Tags card */}
                 {tags && tags.length > 0 && (
-                  <div className="rounded-2xl border border-gray-200 bg-gray-50/80 p-4 text-sm dark:border-gray-700 dark:bg-gray-900/40">
+                  <div className="rounded-2xl border border-gray-200 bg-gray-50/80 p-3 text-sm dark:border-gray-700 dark:bg-gray-900/40">
                     <h2 className="mb-2 text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400">
                       Tags
                     </h2>

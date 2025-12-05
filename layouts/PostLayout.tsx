@@ -58,8 +58,8 @@ export default function PostLayout({
             </div>
           </header>
 
-          {/* Grid: col1 author, col2-3 content, col4 TOC */}
-          <div className="grid-rows-[auto_1fr] divide-y divide-gray-200 pb-8 xl:grid xl:grid-cols-4 xl:gap-x-6 xl:divide-y-0 dark:divide-gray-700">
+          {/* Grid: col1 author (narrow), col2 content (wide), col3 TOC (medium) */}
+          <div className="grid-rows-[auto_1fr] divide-y divide-gray-200 pb-8 xl:grid xl:grid-cols-[240px,minmax(0,2.3fr),minmax(0,1.4fr)] xl:gap-x-8 xl:divide-y-0 dark:divide-gray-700">
             {/* Author sidebar (left) */}
             <dl className="pt-6 pb-10 xl:border-b xl:border-gray-200 xl:pt-11 xl:dark:border-gray-700">
               <dt className="sr-only">Author</dt>
@@ -99,8 +99,8 @@ export default function PostLayout({
               </dd>
             </dl>
 
-            {/* Main content (center, spans col 2–3) */}
-            <div className="divide-y divide-gray-200 xl:col-span-2 xl:col-start-2 xl:row-span-2 xl:pb-0 dark:divide-gray-700">
+            {/* Main content (center, wider column) */}
+            <div className="divide-y divide-gray-200 xl:col-start-2 xl:row-span-2 xl:pb-0 dark:divide-gray-700">
               <div className="prose dark:prose-invert max-w-none pt-10 pb-8">{children}</div>
 
               {/* Read next section */}
@@ -139,9 +139,9 @@ export default function PostLayout({
               )}
             </div>
 
-            {/* TOC (right, sticky, desktop only) */}
+            {/* TOC (right, sticky) */}
             {toc?.length > 0 && (
-              <aside className="hidden xl:block xl:pt-11 xl:col-start-4 xl:row-span-2">
+              <aside className="hidden xl:block xl:pt-11 xl:col-start-3 xl:row-span-2">
                 <NovaTOC toc={toc} />
               </aside>
             )}
@@ -154,7 +154,7 @@ export default function PostLayout({
                     <h2 className="text-xs tracking-wide text-gray-500 uppercase dark:text-gray-400">
                       Tags
                     </h2>
-                      <div className="flex flex-wrap">
+                    <div className="flex flex-wrap">
                       {tags.map((tag) => (
                         <Tag key={tag} text={tag} />
                       ))}

@@ -58,8 +58,9 @@ export default function PostLayout({
             </div>
           </header>
 
+          {/* Main grid: author (left) / content (middle) / TOC (right) */}
           <div className="grid-rows-[auto_1fr] divide-y divide-gray-200 pb-8 xl:grid xl:grid-cols-4 xl:gap-x-6 xl:divide-y-0 dark:divide-gray-700">
-            {/* Author sidebar + TOC */}
+            {/* Author sidebar */}
             <dl className="pt-6 pb-10 xl:border-b xl:border-gray-200 xl:pt-11 xl:dark:border-gray-700">
               <dt className="sr-only">Author</dt>
               <dd>
@@ -95,24 +96,14 @@ export default function PostLayout({
                     </li>
                   ))}
                 </ul>
-
-                {/* TOC in sidebar (desktop only) */}
-                {toc?.length > 0 && (
-                  <div className="mt-8 hidden xl:block">
-                    <h2 className="text-xs tracking-wide text-gray-500 uppercase dark:text-gray-400 mb-2">
-                      On this page
-                    </h2>
-                    <TOCInline toc={toc} asDisclosure={false} />
-                  </div>
-                )}
               </dd>
             </dl>
 
-            {/* Main content column */}
-            <div className="divide-y divide-gray-200 xl:col-span-3 xl:row-span-2 xl:pb-0 dark:divide-gray-700">
+            {/* Main content column (center) */}
+            <div className="divide-y divide-gray-200 xl:col-span-2 xl:row-span-2 xl:pb-0 dark:divide-gray-700">
               <div className="prose dark:prose-invert max-w-none pt-10 pb-8">{children}</div>
 
-              {/* Read next section – nice cards for prev/next */}
+              {/* Read next section */}
               {(next || prev) && (
                 <div className="pt-8 pb-4">
                   <h2 className="text-lg font-semibold mb-4">Read next</h2>
@@ -148,9 +139,19 @@ export default function PostLayout({
               )}
             </div>
 
-            {/* Footer: tags + back to blog */}
-            <footer>
-              <div className="divide-gray-200 text-sm leading-5 font-medium xl:col-start-1 xl:row-start-2 xl:divide-y dark:divide-gray-700">
+            {/* TOC on the right (desktop only) */}
+            {toc?.length > 0 && (
+              <aside className="hidden xl:block xl:pt-10">
+                <h2 className="text-xs tracking-wide text-gray-500 uppercase dark:text-gray-400 mb-2">
+                  On this page
+                </h2>
+                <TOCInline toc={toc} asDisclosure={false} />
+              </aside>
+            )}
+
+            {/* Footer: tags + back to blog (full width on desktop) */}
+            <footer className="mt-6 xl:mt-8 xl:col-span-4">
+              <div className="divide-gray-200 text-sm leading-5 font-medium xl:divide-y dark:divide-gray-700">
                 {tags && (
                   <div className="py-4 xl:py-8">
                     <h2 className="text-xs tracking-wide text-gray-500 uppercase dark:text-gray-400">
@@ -165,7 +166,7 @@ export default function PostLayout({
                 )}
               </div>
 
-              <div className="pt-4 xl:pt-8">
+              <div className="pt-2 xl:pt-4">
                 <Link
                   href={`/${basePath}`}
                   className="text-primary-500 hover:text-primary-600 dark:hover:text-primary-400"

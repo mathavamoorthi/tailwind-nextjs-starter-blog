@@ -392,56 +392,7 @@ export default function MDXEditorPage() {
     <div className="mx-auto max-w-4xl px-4 py-8">
       <h1 className="mb-6 text-3xl font-bold">New MDX Post</h1>
 
-      {/* Workflow Explanation */}
-      <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-700 dark:bg-blue-900">
-        <h3 className="mb-2 text-lg font-semibold text-blue-800 dark:text-blue-200">
-          🚀 Vercel Blob Image Workflow
-        </h3>
-        <div className="space-y-1 text-sm text-blue-700 dark:text-blue-300">
-          <p>
-            • <strong>Images are uploaded to Vercel Blob Storage</strong> for immediate preview
-          </p>
-          <p>
-            • <strong>CDN URLs are inserted</strong> into MDX for instant rendering
-          </p>
-          <p>
-            • <strong>When you publish</strong>, images are downloaded and committed to GitHub
-          </p>
-          <p>
-            • <strong>MDX URLs are updated</strong> to use local paths for production
-          </p>
-          <p>
-            • <strong>Vercel automatically redeploys</strong> with the final images
-          </p>
-        </div>
-      </div>
-
-      {/* GitHub Status */}
-      {githubStatus && (
-        <div
-          className={`mb-4 rounded-lg p-3 text-sm ${
-            githubStatus.configured
-              ? 'border border-green-300 bg-green-100 text-green-800 dark:border-green-700 dark:bg-green-900 dark:text-green-200'
-              : 'border border-yellow-300 bg-yellow-100 text-yellow-800 dark:border-yellow-700 dark:bg-yellow-900 dark:text-yellow-200'
-          }`}
-        >
-          {githubStatus.configured ? (
-            <div className="flex items-center gap-2">
-              <span>✅</span>
-              <span>
-                GitHub Integration: {githubStatus.owner}/{githubStatus.repo}
-              </span>
-              <span className="text-xs">(Posts will be automatically pushed to GitHub)</span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <span>⚠️</span>
-              <span>GitHub Integration: Not configured</span>
-              <span className="text-xs">(Posts will be saved locally only)</span>
-            </div>
-          )}
-        </div>
-      )}
+    
 
       {/* NEW: Rejection banner if this post was rejected */}
       {status === 'rejected' && (

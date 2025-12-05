@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useState } from 'react'
+import { ReactNode } from 'react'
 import { CoreContent } from 'pliny/utils/contentlayer'
 import type { Blog, Author } from 'contentlayer/generated'
 import Link from '@/components/Link'
@@ -7,6 +7,7 @@ import SectionContainer from '@/components/SectionContainer'
 import Image from '@/components/Image'
 import Tag from '@/components/Tag'
 import siteMetadata from '@/data/siteMetadata'
+import TOCInline from 'pliny/ui/TOCInline'
 
 const postDateTemplate: Intl.DateTimeFormatOptions = {
   weekday: 'long',
@@ -15,93 +16,13 @@ const postDateTemplate: Intl.DateTimeFormatOptions = {
   day: 'numeric',
 }
 
-interface TocItem {
-  value: string
-  url: string
-  depth: number
-}
-
 interface LayoutProps {
   content: CoreContent<Blog>
   authorDetails: CoreContent<Author>[]
   next?: { path: string; title: string }
   prev?: { path: string; title: string }
-  toc?: TocItem[]
+  toc?: any
   children: ReactNode
-}
-
-/**
- * Sticky scroll-spy TOC on the right
- */
-function NovaTOC({ toc }: { toc: TocItem[] }) {
-  const [activeId, setActiveId] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!toc || toc.length === 0) return
-
-    const headingIds = toc
-      .map((item) => item.url.replace('#', ''))
-      .filter((id) => !!id)
-    const elements = headingIds
-      .map((id) => document.getElementById(id))
-      .filter((el): el is HTMLElement => !!el)
-
-    if (elements.length === 0) return
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            setActiveId(entry.target.id)
-          }
-        })
-      },
-      {
-        // Trigger earlier so it feels natural
-        rootMargin: '0px 0px -60% 0px',
-        threshold: 0.1,
-      }
-    )
-
-    elements.forEach((el) => observer.observe(el))
-
-    return () => {
-      elements.forEach((el) => observer.unobserve(el))
-      observer.disconnect()
-    }
-  }, [toc])
-
-  return (
-    <div className="sticky top-24 rounded-xl border border-gray-200 bg-gray-50/70 p-4 text-sm dark:border-gray-700 dark:bg-gray-900/40">
-      <h2 className="mb-2 text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400">
-        Contents
-      </h2>
-      <ul className="space-y-1">
-        {toc.map((item) => {
-          const id = item.url.replace('#', '')
-          const isActive = activeId === id
-
-          const indent =
-            item.depth > 2 ? 'pl-4 text-xs' : 'text-sm'
-          const weight = item.depth === 2 ? 'font-semibold' : ''
-          const color = isActive
-            ? 'text-primary-600 dark:text-primary-400'
-            : 'text-gray-700 dark:text-gray-300'
-
-          return (
-            <li key={item.url}>
-              <a
-                href={item.url}
-                className={`${indent} ${weight} ${color} block transition-colors`}
-              >
-                {item.value}
-              </a>
-            </li>
-          )
-        })}
-      </ul>
-    </div>
-  )
 }
 
 export default function PostLayout({
@@ -109,7 +30,7 @@ export default function PostLayout({
   authorDetails,
   next,
   prev,
-  toc = [],
+  toc,
   children,
 }: LayoutProps) {
   const { path, date, title, tags } = content
@@ -126,10 +47,7 @@ export default function PostLayout({
                   <dt className="sr-only">Published on</dt>
                   <dd className="text-base leading-6 font-medium text-gray-500 dark:text-gray-400">
                     <time dateTime={date}>
-                      {new Date(date).toLocaleDateString(
-                        siteMetadata.locale,
-                        postDateTemplate
-                      )}
+                      {new Date(date).toLocaleDateString(siteMetadata.locale, postDateTemplate)}
                     </time>
                   </dd>
                 </div>
@@ -183,9 +101,7 @@ export default function PostLayout({
 
             {/* Main content (center, spans col 2–3) */}
             <div className="divide-y divide-gray-200 xl:col-span-2 xl:col-start-2 xl:row-span-2 xl:pb-0 dark:divide-gray-700">
-              <div className="prose dark:prose-invert max-w-none pt-10 pb-8">
-                {children}
-              </div>
+              <div className="prose dark:prose-invert max-w-none pt-10 pb-8">{children}</div>
 
               {/* Read next section */}
               {(next || prev) && (
@@ -223,10 +139,15 @@ export default function PostLayout({
               )}
             </div>
 
-            {/* TOC (right, sticky, desktop only, scroll-spy) */}
-            {toc.length > 0 && (
+            {/* TOC (right, sticky, desktop only) */}
+            {toc?.length > 0 && (
               <aside className="hidden xl:block xl:pt-11 xl:col-start-4 xl:row-span-2">
-                <NovaTOC toc={toc} />
+                <div className="sticky top-24 rounded-xl border border-gray-200 bg-gray-50/70 p-4 text-sm dark:border-gray-700 dark:bg-gray-900/40">
+                  <h2 className="mb-2 text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400">
+                    Contents
+                  </h2>
+                  <TOCInline toc={toc} asDisclosure={false} />
+                </div>
               </aside>
             )}
 

@@ -33,8 +33,7 @@ export default function PostLayout({
   toc,
   children,
 }: LayoutProps) {
-  const { path, date, title, tags } = content
-  const basePath = path.split('/')[0]
+  const { date, title, tags } = content
 
   return (
     <SectionContainer>
@@ -59,20 +58,11 @@ export default function PostLayout({
             </div>
           </header>
 
-          {/* Layout grid: author/tags | content | TOC */}
-         <div
-  className="grid-rows-[auto_1fr] divide-y divide-gray-200 pb-8
-  xl:grid
-  xl:grid-cols-[180px_minmax(0,1.9fr)_minmax(0,1.9fr)_240px]
-  xl:gap-x-10
-  xl:divide-y-0
-  dark:divide-gray-700"
->
-
-
+          {/* Layout grid: col1 author+tags | col2–3 content | col4 TOC */}
+          <div className="grid-rows-[auto_1fr] divide-y divide-gray-200 pb-8 xl:grid xl:grid-cols-4 xl:gap-x-6 xl:divide-y-0 dark:divide-gray-700">
             {/* LEFT SIDEBAR: Author + Tags */}
             <div className="pt-6 pb-10 xl:pt-11">
-              <div className="sticky top-24 space-y-6">
+              <div className="sticky top-24 space-y-6 max-w-xs">
                 {/* Author card */}
                 <div className="rounded-2xl border border-gray-200 bg-gray-50/80 p-3 text-sm dark:border-gray-700 dark:bg-gray-900/40">
                   <h2 className="mb-2 text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400">
@@ -167,11 +157,13 @@ export default function PostLayout({
             {/* RIGHT SIDEBAR: TOC */}
             {toc?.length > 0 && (
               <aside className="hidden xl:block xl:pt-11 xl:col-start-4 xl:row-span-2">
-                <NovaTOC toc={toc} />
+                <div className="max-w-xs">
+                  <NovaTOC toc={toc} />
+                </div>
               </aside>
             )}
 
-            {/* FOOTER – no back link now, just semantic footer if needed */}
+            {/* Footer filler to keep grid happy */}
             <footer className="hidden xl:block xl:col-span-4" aria-hidden="true" />
           </div>
         </div>

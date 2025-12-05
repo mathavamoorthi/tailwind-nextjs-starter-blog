@@ -7,7 +7,7 @@ import SectionContainer from '@/components/SectionContainer'
 import Image from '@/components/Image'
 import Tag from '@/components/Tag'
 import siteMetadata from '@/data/siteMetadata'
-import TOCInline from 'pliny/ui/TOCInline'
+import NovaTOC from '@/components/NovaTOC'
 
 const postDateTemplate: Intl.DateTimeFormatOptions = {
   weekday: 'long',
@@ -142,12 +142,7 @@ export default function PostLayout({
             {/* TOC (right, sticky, desktop only) */}
             {toc?.length > 0 && (
               <aside className="hidden xl:block xl:pt-11 xl:col-start-4 xl:row-span-2">
-                <div className="sticky top-24 rounded-xl border border-gray-200 bg-gray-50/70 p-4 text-sm dark:border-gray-700 dark:bg-gray-900/40">
-                  <h2 className="mb-2 text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400">
-                    Contents
-                  </h2>
-                  <TOCInline toc={toc} asDisclosure={false} />
-                </div>
+                <NovaTOC toc={toc} />
               </aside>
             )}
 
@@ -159,7 +154,7 @@ export default function PostLayout({
                     <h2 className="text-xs tracking-wide text-gray-500 uppercase dark:text-gray-400">
                       Tags
                     </h2>
-                    <div className="flex flex-wrap">
+                      <div className="flex flex-wrap">
                       {tags.map((tag) => (
                         <Tag key={tag} text={tag} />
                       ))}

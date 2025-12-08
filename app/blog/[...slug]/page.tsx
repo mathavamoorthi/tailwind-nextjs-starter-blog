@@ -19,7 +19,7 @@ const layouts = {
   PostSimple,
   PostLayout,
   PostBanner,
-}
+} as const
 
 export async function generateMetadata(props: {
   params: Promise<{ slug: string[] }>
@@ -29,6 +29,11 @@ export async function generateMetadata(props: {
   const post = allBlogs.find((p) => p.slug === slug)
 
   if (!post) {
+    return
+  }
+
+  // Optional: don’t generate metadata for drafts in production
+  if (process.env.NODE_ENV === 'production' && post.draft === true) {
     return
   }
 
@@ -76,26 +81,43 @@ export async function generateMetadata(props: {
 }
 
 export const generateStaticParams = async () => {
-  return allBlogs.map((p) => ({ slug: p.slug.split('/').map((name) => decodeURI(name)) }))
+  return allBlogs.map((p) => ({
+    slug: p.slug.split('/').map((name) => decodeURI(name)),
+  }))
 }
 
 // Enable ISR - revalidate every hour
 export const revalidate = 3600
 
-export default async function Page(props: { params: Promise<{ slug: string[] }> }) {
+export default async function Page(props: {
+  params: Promise<{ slug: string[] }>
+}) {
   const params = await props.params
   const slug = decodeURI(params.slug.join('/'))
 
+  // Build the list used for prev/next navigation
   // Filter out drafts in production
-  const sortedCoreContents = allCoreContent(sortPosts(allBlogs))
+  const navSource =
+    process.env.NODE_ENV === 'production'
+      ? allBlogs.filter((p) => p.draft !== true)
+      : allBlogs
+
+  const sortedCoreContents = allCoreContent(sortPosts(navSource))
   const postIndex = sortedCoreContents.findIndex((p) => p.slug === slug)
+
   if (postIndex === -1) {
     return notFound()
   }
 
   const prev = sortedCoreContents[postIndex + 1]
   const next = sortedCoreContents[postIndex - 1]
+
   const post = allBlogs.find((p) => p.slug === slug) as Blog
+
+  // In production, don’t render drafts directly
+  if (process.env.NODE_ENV === 'production' && post.draft === true) {
+    return notFound()
+  }
 
   const authorList = post.authors || ['default']
   const authorDetails = authorList.map((author) => {
@@ -114,7 +136,9 @@ export default async function Page(props: { params: Promise<{ slug: string[] }> 
       : siteMetadata.socialBanner
 
   const image =
-    rawImage && rawImage.startsWith('http') ? rawImage : `${siteMetadata.siteUrl}${rawImage}`
+    rawImage && rawImage.startsWith('http')
+      ? rawImage
+      : `${siteMetadata.siteUrl}${rawImage}`
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -129,30 +153,35 @@ export default async function Page(props: { params: Promise<{ slug: string[] }> 
       name: author.name,
     })),
   }
-const Layout = layouts[post.layout || defaultLayout]
 
-return (
-  <>
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-    />
-    <Layout
-      content={mainContent}
-      authorDetails={authorDetails}
-      next={next}
-      prev={prev}
-      toc={post.toc}
-    >
-      {post.body?.code ? (
-        <MDXLayoutRenderer code={post.body.code} components={components} toc={post.toc} />
-      ) : (
-        <div className="prose dark:prose-invert">
-          <PageTitle>{post.title}</PageTitle>
-          <p>Post content not available.</p>
-        </div>
-      )}
-    </Layout>
-  </>
-)
+  const Layout = layouts[post.layout || defaultLayout]
+
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <Layout
+        content={mainContent}
+        authorDetails={authorDetails}
+        next={next}
+        prev={prev}
+        toc={post.toc}
+      >
+        {post.body?.code ? (
+          <MDXLayoutRenderer
+            code={post.body.code}
+            components={components}
+            toc={post.toc}
+          />
+        ) : (
+          <div className="prose dark:prose-invert">
+            <PageTitle>{post.title}</PageTitle>
+            <p>Post content not available.</p>
+          </div>
+        )}
+      </Layout>
+    </>
+  )
 }

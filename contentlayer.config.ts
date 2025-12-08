@@ -98,18 +98,22 @@ export const Blog = defineDocumentType(() => ({
   filePathPattern: 'blog/**/*.mdx',
   contentType: 'mdx',
   fields: {
-    title: { type: 'string', required: true },
-    date: { type: 'date', required: true },
-    tags: { type: 'list', of: { type: 'string' }, default: [] },
-    lastmod: { type: 'date' },
-    draft: { type: 'boolean' },
-    summary: { type: 'string' },
-    images: { type: 'json' },
-    authors: { type: 'list', of: { type: 'string' } },
-    layout: { type: 'string' },
-    bibliography: { type: 'string' },
-    canonicalUrl: { type: 'string' },
-  },
+  title: { type: 'string', required: true },
+  date: { type: 'date', required: true },
+  tags: { type: 'list', of: { type: 'string' }, default: [] },
+  lastmod: { type: 'date' },
+  draft: { type: 'boolean', default: false },
+  summary: { type: 'string' },
+  images: { type: 'json' },
+  authors: { type: 'list', of: { type: 'string' } },
+  layout: { type: 'string' },
+  bibliography: { type: 'string' },
+  canonicalUrl: { type: 'string' },
+
+  //  NEW FIELD – controls whether it shows on front page
+  showOnHome: { type: 'boolean', default: true },
+},
+
   computedFields: {
     ...computedFields,
     structuredData: {

@@ -1,0 +1,175 @@
+---
+title: How to Get a Free Custom Domain Using GitHub Student Pack, Cloudflare, and Render
+date: "2026-01-23"
+draft: true
+authors: ["Jonsnow"]
+status: draft
+createdAt: "2026-01-23T10:21:13.081Z"
+updatedAt: "2026-01-23T10:21:13.081Z"
+---
+
+### *[Disclaimer]:*
+
+*You don’t need to be an expert, but having a basic idea of how domains and DNS work (things like CNAME records, nameservers, and HTTPS) will help you understand why each step matters , not just what to click.*
+
+### How it started:
+
+I initially deployed my site on Render, which was accessible at:
+
+```markdown
+https://jonsnow-l01g.onrender.com
+```
+
+To prevent Render’s inactivity timeout (15 mins), I used [**UptimeRobot**](https://uptimerobot.com/) to periodically ping the deployed endpoint, ensuring the service remains active.It worked fine but let’s be honest, that URL doesn’t exactly scream *professional*.
+
+So I decided to get a **custom domain**, and thankfully, I still had my **GitHub Student Developer Pack** unclaimed :) . I immediately added my student email to GitHub, verified it, and waited.
+
+Yes… **waited**. 
+
+![](https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExbWs5N3doZnMyZGVoODA4YWtidmQ5cGgwMG1waHZrcWo2ajM4enlraCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/QBd2kLB5qDmysEXre9/giphy.gif)
+
+It took almost **4 full days (≈72 hours)** for GitHub to approve my student status.
+
+Patience unlocked: **free domain** 🔓 . GitHub’s student pack offers a **free `.me` domain via Namecheap**, so that’s what I went with.
+
+### Claiming the Free Domain
+
+1. Log in to GitHub Education
+    
+    https://education.github.com/learner/learn
+    
+2. Connect Namecheap from the Student Pack
+    
+    https://education.github.com/pack#namecheap
+    
+
+### **Purchasing the Domain (Namecheap):**
+
+1. Get your desired domain name and click `complete order`.
+    
+    ![image.png](attachment:7c6beec4-5379-403c-9386-66732ea82708:image.png)
+    
+    Check `GitHub Pages` only if you want to host [username.github.io](http://username.github.io/) on your domain ([domain-name.me](http://domain-name.me/)).Otherwise, leave it unchecked.Then enter your primary GitHub email (use your student email if it is set as primary) and click Finish up.
+    
+    ![image.png](attachment:36bfb492-d3e1-4aaa-bf18-705c3066fa6a:image.png)
+    
+
+1. Then Go to your `namecheap dashboard` and check your purchased domain .
+    
+    ![image.png](attachment:f528d218-62e6-431d-9301-8a18b7f1dd10:image.png)
+    
+
+### Why I Switched to Cloudflare 🌩️?
+
+Now , I thought of using cloudflare as my DNS provider instead of default Namecheap.This is because Cloudflare offers,
+
+1. **Fast loading**
+2. **Free HTTPS on custom domain**
+3. **Attack protection (DDoS, bots)**
+4. **Render/Vercel/Netlify dynamic hosting  ( Namecheap can’t)**
+5. **Hide hosting provider IP.**
+    
+    
+
+Now , login to your cloudflare account .
+
+1. Go to `domain` in the dashbaord 
+2. Select `onboard domain`  and enter your purchased `.me` domain name and click `continue` .
+    
+    ![image.png](attachment:87f0150c-7dac-458a-af06-9c4ef2c748e6:image.png)
+    
+
+1. When you add the site, Cloudflare auto-imports Namecheap's default records , delete all those records to avoid conflicts . Especially delete any AAAA (IPv6) records ( Render is IPv4-only).
+2. Next cloudflare gives you two custom `nameservers`  ( e.g `1-a[.ns.cloudflare.com](http://evan.ns.cloudflare.com/)` , `1-b[.ns.cloudflare.com](http://evan.ns.cloudflare.com/)` ) . 
+3. Copy those nameservers , go to Namecheap dashbaord , Domain List → Manage domain → Nameservers section (dropdown) .
+4. Select Custom DNS,  Paste Cloudflare's two nameservers. 
+    
+    ***What happens next ?***
+    
+    ```markdown
+    Namecheap tells the global .me registry:
+    "From now on, don't ask me for DNS records anymore , ask Cloudflare's nameservers instead."
+    This change is registered at the root zone level (the highest level of DNS hierarchy).
+    After propagation (minutes to hours), every DNS resolver in the world starts asking Cloudflare directly.
+    ```
+    
+5. In the terminal use ,
+    
+    ```markdown
+    dig NS <domain.name.me> 
+    ```
+    
+    to verify the DNS records of NS which was provided by cloudflare.
+    
+
+### **Connecting the Domain to Render**
+
+1. Go to render dashboard → project → your-service → settings → custom domains
+2. Add your custom domain `domain-name.me` , the `www.domain-name.me` gets added by itself.
+    
+    ![image.png](attachment:09b6ea16-fe9f-44d4-baba-7c60dd4c78c0:image.png)
+    
+    **Your domain does not yet point to your service!** Next, you'll [configure DNS](https://render.com/docs/custom-domains#2-configure-dns-with-your-provider).
+    
+
+### **Configuring Cloudflare DNS**
+
+1. Now go to cloudflare dashboard → DNS →Records → Add record
+    
+    **Record 1:**
+    
+    1. Type → CNAME
+    2. Name →@ ( @ → targets the [domain-name.me](http://domain-name.me) )
+    3. Target → render / vercel deployed domain ( without www or https ) ( e.g [jonsnow-l01g.onrender.com](http://jonsnow-l01g.onrender.com) ) 
+    
+    ![image.png](attachment:d3d2bb35-ec8b-4713-9220-65fc6f5057dd:image.png)
+    
+    Similary Record 2:
+    
+    Type → CNAME
+    
+    Name → www
+    
+    Target → same as record 1
+    
+    and most importantly `Set **Proxy status** to **DNS only**` for both records. This ensures that requests go to Render instead of Cloudflare, so that we can verify the domain and issue a certificate. After cert issued , turn to `proxy` .
+    
+    ***What does this do ?***
+    
+    ```markdown
+    When someone types domain-name.me:
+    Their browser asks Cloudflare (via the nameservers).
+    Cloudflare sees the CNAME → knows to forward traffic to Render.
+    Because it’s proxied: Cloudflare gives visitors its own IP (not Render’s)
+    ```
+    
+
+1.  DNS changes might take a few minutes (5-20 mins) but may take longer in rare case to propagate . Once resolved, your domain will point to your Render service. You can verify certificate status in the Render Dashboard under *Custom Domains*.
+    
+    ![image.png](attachment:5e2d1ab9-0181-4d6e-97f3-c9eabe04a602:image.png)
+    
+
+1. Once Render shows 'Certificate Issued' (green), return to Cloudflare DNS → set both CNAMEs back to Proxied (orange cloud).
+2. Congrats! Your portfolio is now live at [https://yourdomain.me](https://yourdomain.me/) — fast, secure, DDoS-protected, with hidden origin IP and free HTTPS.
+    
+    
+    ![](https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExMmMzNXhkbnNlbWFpMjN3Z2FuOHE4ZXVlbDNpZWk0ZTlidW85eWxwMiZlcD12MV9naWZzX3NlYXJjaCZjdD1n/g9582DNuQppxC/giphy.gif)
+    
+
+### Complete flow:
+
+1. User types `domain-name.me` in browser.
+2. Browser asks DNS, "Where is domain-name.me?"
+3. DNS resolver finds your nameservers (Cloudflare) → asks Cloudflare.
+4. Cloudflare looks up the CNAME record → sees it points to `render-domain.onrender.com` → forwards the request (proxied).
+5. Request hits Render’s servers.
+6. Render recognizes the hostname → serves your portfolio.
+7. Response goes back through Cloudflare → user sees fast, secure page .
+
+You didn’t just buy a domain ,you wired yourself into the internet. Thanks for reading.Bye..
+
+![](https://media.giphy.com/media/v1.Y2lkPWVjZjA1ZTQ3aGpjNWt0OHR2NTNqdmR4aWRnbG5vNDZnYnNreW1wYTBuZWMzajAxNSZlcD12MV9naWZzX3JlbGF0ZWQmY3Q9Zw/hujejOtss7zG0/giphy.gif)
+
+### Reference:
+
+https://render.com/docs/custom-domains

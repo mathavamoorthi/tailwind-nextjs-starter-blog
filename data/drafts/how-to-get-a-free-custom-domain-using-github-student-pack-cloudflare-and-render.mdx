@@ -4,8 +4,8 @@ date: "2026-01-23"
 draft: true
 authors: ["Jonsnow"]
 status: draft
-createdAt: "2026-01-23T10:25:24.581Z"
-updatedAt: "2026-01-23T10:25:24.581Z"
+createdAt: "2026-01-23T10:26:38.603Z"
+updatedAt: "2026-01-23T10:26:38.603Z"
 ---
 
 ### *[Disclaimer]:*
@@ -78,7 +78,7 @@ Now , login to your cloudflare account .
     
 
 1. When you add the site, Cloudflare auto-imports Namecheap's default records , delete all those records to avoid conflicts . Especially delete any AAAA (IPv6) records ( Render is IPv4-only).
-2. Next cloudflare gives you two custom `nameservers`  ( e.g `1-a[.ns.cloudflare.com](http://evan.ns.cloudflare.com/)` , `1-b[.ns.cloudflare.com](http://evan.ns.cloudflare.com/)` ) . 
+2. Next cloudflare gives you two custom `nameservers`  ( e.g `1-a.ns.cloudflare.com` , `1-b.ns.cloudflare.com` ) . 
 3. Copy those nameservers , go to Namecheap dashbaord , Domain List → Manage domain → Nameservers section (dropdown) .
 4. Select Custom DNS,  Paste Cloudflare's two nameservers. 
     
@@ -105,7 +105,7 @@ Now , login to your cloudflare account .
 1. Go to render dashboard → project → your-service → settings → custom domains
 2. Add your custom domain `domain-name.me` , the `www.domain-name.me` gets added by itself.
     
-    ![image.png](attachment:09b6ea16-fe9f-44d4-baba-7c60dd4c78c0:image.png)
+    ![Screenshot From 2026-01-21 23-53-32](/static/images/how-to-get-a-free-custom-domain-using-github-student-pack-cloudflare-and-render/1769163965023-screenshot-from-2026-01-21-23-53-32.png)
     
     **Your domain does not yet point to your service!** Next, you'll [configure DNS](https://render.com/docs/custom-domains#2-configure-dns-with-your-provider).
     

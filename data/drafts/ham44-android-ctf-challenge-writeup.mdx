@@ -4,8 +4,8 @@ date: "2026-03-15"
 draft: true
 authors: ["Groot"]
 status: draft
-createdAt: "2026-03-15T18:17:36.854Z"
-updatedAt: "2026-03-15T18:17:36.854Z"
+createdAt: "2026-03-15T18:20:21.124Z"
+updatedAt: "2026-03-15T18:20:21.124Z"
 ---
 
 
@@ -61,6 +61,8 @@ adb install Ham44.apk
 
 When we launch the application, we immediately notice something unusual. The app only plays a Lewis Hamilton edit video when opened.
 
+![image](https://cdn-images-1.medium.com/max/1600/1*J3CfI5IDp_fAcD_ZU3PK6w.gif)
+
 There are:
 
 * No buttons
@@ -79,6 +81,7 @@ Since the UI gives us nothing to work with, the next logical step is static anal
 apktool -d Ham44.apk
 
 ```
+![image](/static/images/ham44-android-ctf-challenge-writeup/1773598714439-image.png)
 
 ### Understanding Android APK Structure
 
@@ -101,6 +104,7 @@ To better understand the application logic, we can decompile the APK using **JAD
 jadx-gui Ham44.apk
 
 ```
+![image](/static/images/ham44-android-ctf-challenge-writeup/1773598734223-image.png)
 
 ---
 
@@ -136,6 +140,7 @@ adb root
 adb shell am start -n com.example.challx/.FlagActivity
 
 ```
+![image](/static/images/ham44-android-ctf-challenge-writeup/1773598762721-image.png)
 
 Success! Suddenly, a new screen appears in the application. This screen contains a single **Download** button.
 
@@ -144,6 +149,9 @@ Success! Suddenly, a new screen appears in the application. This screen contains
 ## Step 6 — Retrieving the Flag
 
 Clicking the Download button triggers a request to the backend gRPC server and returns a value. At first glance, it looks promising, but after examining the result, we realize this is not the actual flag.
+
+![image](/static/images/ham44-android-ctf-challenge-writeup/1773598787180-image.png)
+
 
 Instead, we receive an encrypted hex string:
 `38590f1b3d20235c3352151c3448523d2e6c2132345823050a58340e0803313126564956`

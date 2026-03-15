@@ -4,76 +4,63 @@ date: "2026-03-15"
 draft: true
 authors: ["Groot"]
 status: draft
-createdAt: "2026-03-15T17:46:00.714Z"
-updatedAt: "2026-03-15T17:46:00.714Z"
+createdAt: "2026-03-15T17:49:20.913Z"
+updatedAt: "2026-03-15T17:49:20.913Z"
 ---
 
-```markdown
-# Ham44 - Android CTF Challenge Writeup
 
-**Author:** gr00t  
+---
+# Ham44 — Android CTF Challenge Writeup
+
+**Author:** gr00t
 
 ---
 
 ## Introduction
 
-Recently, I got the opportunity to build an Android challenge for a CTF organized by my team **NOVA**. This was actually my first time designing a **medium-level Android challenge**, so it was both exciting and a bit challenging to balance the difficulty.
+Recently, I got the opportunity to build an Android challenge for a CTF organized by my Team NOVA. This was actually my first time designing a medium-level Android challenge, so it was both exciting and a bit challenging to balance the difficulty.
 
-The challenge was called **Ham44** — the name comes from **Sir Lewis Hamilton**, one of my favorite Formula 1 drivers.
+The challenge was called **Ham44** — yes, the name comes from Sir Lewis Hamilton, one of my favorite Formula 1 drivers.
 
 The challenge included several Android security concepts:
 
-- A **hidden activity**
-- **Encrypted flag retrieval** from a **gRPC server**
+* A hidden activity
+* An encrypted flag retrieval from a gRPC server
 
-Interestingly, the challenge ended up with **0 official solves**, but a team from **Amrita Vishwa Vidyapeetham, Coimbatore** managed to solve it in the intended way. Unfortunately, they ran out of time before submitting.
+Interestingly, the challenge ended up with 0 official solves, but a team from Amrita Vishwa Vidyapeetham, Coimbatore managed to solve it in the intended way. Unfortunately, they ran out of time before submitting. Still, congratulations to them — that was impressive work.
 
-Still, congratulations to them — that was impressive work.
-
-In this blog, I'll walk through the **intended solution path** for the challenge.
+In this blog, I'll walk through the intended solution path for the challenge.
 
 ---
 
 ## Challenge Description
 
-### Ham44
+**Ham44**
 
-As part of a campus promotion for **F1 by KICTF**, a small Android app began circulating among students. It appears to be nothing more than a simple media demo that plays a familiar song on launch.
+> As part of a campus promotion for F1 by KICTF, a small Android app began circulating among students. It appears to be nothing more than a simple media demo that plays a familiar song on launch.
+> Just simple right?..
 
-Just simple right?..
+**Author:** gr00t
+**Flag:** `KICTF{gRpC_S3rV3r_St0r4g3}`
+**APK:** [Download Link] *(Note: Update with actual link if needed)*
 
-**Author:** gr00t  
+The challenge description does not reveal much. The only hint given is:
+*"Just simple right?"*
 
-**Flag:**  
-```
-
-KICTF{gRpC_S3rV3r_St0r4g3}
-
-````
-
-**APK:**  
-https://drive.google.com/file/d/1jqEd_36nE-G4JUdR9wrV0Z6xH56KHWw_/view?usp=sharing
-
-The challenge description does not reveal much.  
-The only hint given is:
-
-> **"Just simple right?"**
-
-This is meant to subtly indicate that the application is **not as simple as it appears**.
+This is meant to subtly indicate that the application is not as simple as it appears.
 
 ---
 
-# Step 1 — Installing the APK
+## Step 1 — Installing the APK
 
 First, install the APK on a device or emulator.
 
 ```bash
 adb install Ham44.apk
-````
 
-When we launch the application, we immediately notice something unusual.
+```
 
-The app **only plays a Lewis Hamilton edit video when opened**.
+When we launch the application, we immediately notice something unusual. The app only plays a Lewis Hamilton edit video when opened.
 
 There are:
 
@@ -81,227 +68,142 @@ There are:
 * No menus
 * No visible features
 
-The user can only **open the app and close it**.
-
-At first glance, it looks like a simple video app playing a Lewis Hamilton edit.
-
-But since this is a **CTF challenge**, we know that the **real functionality must be hidden somewhere beneath the surface**.
+The user can only open the app and close it. At first glance, it looks like a simple video app. But since this is a CTF challenge, we know that the real functionality must be hidden somewhere beneath the surface.
 
 ---
 
-# Step 2 — Inspecting the APK
+## Step 2 — Inspecting the APK
 
-Since the UI gives us nothing to work with, the next logical step is **static analysis**.
-
-An Android APK is essentially a **ZIP archive** containing:
+Since the UI gives us nothing to work with, the next logical step is static analysis. An Android APK is essentially a ZIP archive containing:
 
 * Application code
 * Resources
 * Manifest configuration
 * Compiled classes
 
-We can unpack it using **apktool**.
+We can unpack it using `apktool`.
 
 ```bash
 apktool -d Ham44.apk
+
 ```
 
 This extracts the APK contents into a folder where we can inspect the files.
 
----
+### Understanding Android APK Structure
 
-# Understanding Android APK Structure
+A typical Android APK contains several important components:
 
-A typical Android APK contains several important components.
-
-### AndroidManifest.xml
-
-This file defines:
-
-* Activities
-* Permissions
-* Application components
-* Intent filters
-
-It essentially acts as the **configuration file for the entire app**.
-
-### classes.dex
-
-This contains the **compiled Java/Kotlin bytecode**.
-
-### res/
-
-This folder contains:
-
-* Layout files
-* Images
-* UI resources
-
-### assets/
-
-Optional directory containing extra files used by the application.
+* **`AndroidManifest.xml`**: This file defines activities, permissions, application components, and intent filters. It essentially acts as the configuration file for the entire app.
+* **`classes.dex`**: This contains the compiled Java/Kotlin bytecode.
+* **`res/`**: This folder contains layout files, images, and UI resources.
+* **`assets/`**: Optional directory containing extra files used by the application.
 
 ---
 
-# Step 3 — Inspecting the Manifest
+## Step 3 — Inspecting the Manifest
 
-While exploring the extracted files, we notice something interesting.
+While exploring the extracted files, we notice something interesting. The Manifest file and class names appear obfuscated, which makes manual analysis a bit harder.
 
-The **manifest file and class names appear obfuscated**, which makes manual analysis a bit harder.
-
-To better understand the application, we can **decompile the APK using JADX**.
+To better understand the application, we can decompile the APK using `jadx`.
 
 ```bash
 jadx-gui Ham44.apk
+
 ```
 
-JADX converts the compiled bytecode back into **readable Java code**, making it much easier to analyze the application logic.
+JADX converts the compiled bytecode back into readable Java code, making it much easier to analyze the application logic.
 
 ---
 
-# Step 4 — Discovering the Hidden Activity
+## Step 4 — Discovering the Hidden Activity
 
-Inside the **AndroidManifest.xml**, we find something interesting.
-
-There is another activity defined in the application:
+Inside the `AndroidManifest.xml`, we find something interesting. There is another activity defined in the application:
 
 ```xml
-<activity
-    android:name="com.example.challx.FlagActivity"
-    android:permission="com.example.ctfapp.PERMISSON_FLAG"
+<activity  
+    android:name="com.example.challx.FlagActivity"  
+    android:permission="com.example.ctfapp.PERMISSON_FLAG"  
     android:exported="true">
-    <intent-filter>
-        <action android:name="com.example.ctfapp.OPEN_FLAG"/>
-        <category android:name="android.intent.category.DEFAULT"/>
-    </intent-filter>
+    <intent-filter>  
+        <action android:name="com.example.ctfapp.OPEN_FLAG"/>  
+        <category android:name="android.intent.category.DEFAULT"/>  
+    </intent-filter>  
 </activity>
-```
-
-The **main thing standing out here** is:
-
-### The Activity is Exported
 
 ```
-android:exported="true"
-```
 
-This means the activity can be **launched by external applications**.
+The main thing standing out here is that **the Activity is Exported**:
+`android:exported="true"`
 
-Even if the UI does not expose it, we can still **trigger it manually**.
+This means the activity can be launched by external applications. Even if the UI does not expose it, we can still trigger it manually.
 
 ---
 
-# Step 5 — Launching the Hidden Activity
+## Step 5 — Launching the Hidden Activity
 
-Since the activity is exported, we can start it manually using **ADB**.
+Since the activity is exported, we can start it manually using ADB.
 
 ```bash
 adb root
 adb shell am start -n com.example.challx/.FlagActivity
+
 ```
 
-Because I am using a **rooted Android emulator**, the command successfully launches the activity.
-
-Suddenly, a **new screen appears in the application**.
-
-This screen contains a **Download button**.
+Because I am using a rooted Android emulator, the command successfully launches the activity. Suddenly, a new screen appears in the application. This screen contains a **Download** button.
 
 ---
 
-# Step 6 — Retrieving the Flag
+## Step 6 — Retrieving the Flag
 
-Clicking the **Download** button triggers a request to the backend server and returns a value.
+Clicking the Download button triggers a request to the backend server and returns a value. At first glance, it looks promising. But after examining the result, we realize something: this is not the actual flag.
 
-At first glance, it looks promising.
+Instead, we receive an encrypted string:
+`38590f1b3d20235c3352151c3448523d2e6c2132345823050a58340e0803313126564956`
 
-But after examining the result, we realize something:
-
-This is **not the actual flag**.
-
-Instead, we receive an **encrypted string**.
-
-```
-38590f1b3d20235c3352151c3448523d2e6c2132345823050a58340e0803313126564956
-```
-
-So now the challenge becomes **cryptanalysis**.
+So now the challenge becomes cryptanalysis.
 
 ---
 
-# Step 7 — Identifying the Encryption
+## Step 7 — Identifying the Encryption
 
-From the challenge description we already know something important.
+From the challenge description, we already know something important. The flag format is:
+`KICTF{...}`
 
-The **flag format** is:
-
-```
-KICTF{...}
-```
-
-This gives us **known plaintext**.
-
-This allows us to attempt a **known-plaintext attack**.
-
-A common encryption used in CTF challenges is **repeating XOR**.
+This gives us known plaintext, allowing us to attempt a known-plaintext attack. A common encryption used in CTF challenges is repeating XOR.
 
 For XOR encryption:
+`Ciphertext ⊕ Plaintext = Key`
 
-```
-Ciphertext ⊕ Plaintext = Key
-```
-
-So if we know part of the plaintext, we can potentially **recover the key**.
+So if we know part of the plaintext, we can potentially recover the key.
 
 ---
 
-# Step 8 — Discovering the Base64 Layer
+## Step 8 — Discovering the Base64 Layer
 
-Initially, XORing the ciphertext directly with:
+Initially, XORing the ciphertext directly with `KICTF{` produces non-printable characters. This suggests that another encoding layer was applied before XOR encryption.
 
-```
-KICTF{
-```
+A common candidate in such challenges is Base64. Encoding `KICTF{` in Base64 gives:
+`S0lDVEZ7`
 
-produces **non-printable characters**.
+Now we XOR the first 8 bytes of ciphertext with this Base64 string. Doing so reveals a repeating pattern:
+`kic_keyk`
 
-This suggests that **another encoding layer** was applied before XOR encryption.
-
-A common candidate in such challenges is **Base64**.
-
-Encoding `KICTF{` in Base64 gives:
-
-```
-S0lDVEZ7
-```
-
-Now we XOR the **first 8 bytes of ciphertext** with this Base64 string.
-
-Doing so reveals a repeating pattern:
-
-```
-kic_keyk
-```
-
-This strongly suggests that the **repeating XOR key** is:
-
-```
-kic_key
-```
+This strongly suggests that the repeating XOR key is:
+**`kic_key`**
 
 ---
 
-# Step 9 — Decrypting the Flag
+## Step 9 — Decrypting the Flag
 
 Now that we know:
 
 * Ciphertext (hex)
-* Encryption method (**repeating XOR**)
+* Encryption method (repeating XOR)
 * XOR key (`kic_key`)
-* Additional encoding (**Base64**)
+* Additional encoding (Base64)
 
-We can fully reverse the encryption.
-
-Below is the **Python script used to decrypt the flag**.
+We can fully reverse the encryption. Below is the Python script used to decrypt the flag.
 
 ```python
 import base64
@@ -317,35 +219,27 @@ xored_bytes = bytes.fromhex(encrypted_hex)
 
 # Step 2: XOR-decrypt using repeating key
 key_bytes = xor_key.encode("utf-8")
-
-b64_bytes = bytes(
-    b ^ key_bytes[i % len(key_bytes)]
-    for i, b in enumerate(xored_bytes)
-)
+b64_bytes = bytes(b ^ key_bytes[i % len(key_bytes)] for i, b in enumerate(xored_bytes))
 
 # Step 3: Decode Base64
 flag = base64.b64decode(b64_bytes).decode("utf-8")
 
 print(f"Congratulations! The flag is: {flag}")
+
 ```
 
 Running the script produces:
-
-```
-Congratulations! The flag is: KICTF{gRpC_S3rV3r_St0r4g3}
-```
+`Congratulations! The flag is: KICTF{gRpC_S3rV3r_St0r4g3}`
 
 ---
 
-# Final Flag
+## Final Flag
 
-```
-KICTF{gRpC_S3rV3r_St0r4g3}
-```
+**`KICTF{gRpC_S3rV3r_St0r4g3}`**
 
 ---
 
-# Final Thoughts
+## Final Thoughts
 
 This challenge combined multiple Android security concepts:
 
@@ -354,22 +248,13 @@ This challenge combined multiple Android security concepts:
 * Backend Communication via gRPC
 * Cryptographic Reversal
 
-Even though the app appeared **extremely simple at first glance**, deeper inspection revealed **multiple layers of logic**.
+Even though the app appeared extremely simple at first glance, deeper inspection revealed multiple layers of logic. That is often the key lesson in mobile security challenges: **What you see in the UI is rarely the whole story. There is almost always something hidden beneath.**
 
-That is often the key lesson in **mobile security challenges**:
+This was my first time building an Android CTF challenge, and it was a great learning experience designing the vulnerability chain.
 
-> What you see in the UI is rarely the whole story.
-
-There is almost always **something hidden beneath**.
-
-This was my **first time building an Android CTF challenge**, and it was a great learning experience designing the vulnerability chain.
-
-Hopefully you enjoyed this walkthrough.
+Hopefully, you enjoyed this walkthrough.
+*- gr00t*
 
 ---
 
-**— gr00t**
-
-```
-```
 
